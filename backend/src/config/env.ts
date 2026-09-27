@@ -7,7 +7,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(5000),
   MONGODB_URI: z.string({ error: 'MONGODB_URI is required' }).min(1, 'MONGODB_URI is required'),
-  CLIENT_ORIGIN: z.url().default('http://localhost:5173'),
+  CLIENT_ORIGIN: z.url().default('http://localhost:5174'),
 });
 
 const parsed = envSchema.safeParse(process.env);
