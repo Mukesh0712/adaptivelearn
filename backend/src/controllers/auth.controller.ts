@@ -1,5 +1,4 @@
 import type { Request, Response } from 'express';
-import bcrypt from 'bcrypt';
 import { UserModel, type UserDocument } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
 import {
@@ -8,12 +7,9 @@ import {
   signRefreshToken,
   verifyRefreshToken,
 } from '../utils/tokens.js';
+import { hashPassword, verifyPassword } from '../utils/password.js';
 import { REFRESH_COOKIE, clearRefreshCookie, setRefreshCookie } from '../utils/cookies.js';
 import type { LoginInput, RegisterInput } from '../validators/auth.schema.js';
-
-// Cost factor 10 = 2^10 hashing rounds: slow enough to make brute-forcing
-// stolen hashes expensive, fast enough (~100ms) for a normal login.
-const BCRYPT_ROUNDS = 10;
 
 // Issues a fresh token pair: the refresh token goes into an httpOnly cookie
 // (and its hash into the DB), the access token goes into the JSON body.
@@ -35,7 +31,7 @@ export async function register(req: Request, res: Response) {
     throw ApiError.conflict('An account with this email already exists');
   }
 
-  const hashed = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  const hashed = await hashPassword(password);
   const user = await UserModel.create({ name, email, password: hashed, role });
 
   await startSession(res, user, 201);
@@ -49,7 +45,7 @@ export async function login(req: Request, res: Response) {
 
   // Same message for "no such user" and "wrong password", so attackers can't
   // use the login form to discover which emails are registered.
-  if (!user || !(await bcrypt.compare(password, user.password))) {
+  if (!user || !(await verifyPassword(password, user.password))) {
     throw ApiError.unauthorized('Invalid email or password');
   }
 

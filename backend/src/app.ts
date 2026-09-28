@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import { env } from './config/env.js';
 import { authRouter } from './routes/auth.routes.js';
+import { testRouter } from './routes/test.routes.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 
 // The Express app is built here without calling listen(), so it can later be
@@ -22,6 +23,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.use('/api/auth', authRouter);
+app.use('/api/test', testRouter);
 
 // These two must be registered last: unknown routes → 404, then all errors → JSON.
 app.use(notFound);
