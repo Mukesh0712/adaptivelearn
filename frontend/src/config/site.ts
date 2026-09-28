@@ -6,7 +6,8 @@ export const SITE = {
   name: 'AdaptiveLearn',
   tagline: 'AI-powered smart classroom and personalised learning platform',
   description:
-    'AdaptiveLearn is an AI-powered smart classroom platform with personalised learning for students and dedicated portals for instructors, parents and administrators.',
+    // Kept under ~155 characters so search engines don't cut it off.
+    'AI-powered smart classroom with personalised learning, plus dedicated portals for students, instructors, parents and administrators.',
   // TODO: replace with the real contact / grievance email before launch.
   contactEmail: 'pimpalkarmukesh07@gmail.com',
   // TODO: replace with the legal name of the organisation running the site.

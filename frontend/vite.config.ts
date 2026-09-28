@@ -4,13 +4,16 @@ import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
 import { seoPlugin } from './seo.plugin.ts'
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd())
-  // Public address of the site (e.g. https://adaptivelearn.example.com).
-  // Set VITE_SITE_URL when building for production.
-  // On Render, RENDER_EXTERNAL_URL (the service's https://….onrender.com
-  // address) is used when VITE_SITE_URL isn't set.
-  const siteUrl = env.VITE_SITE_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:5174'
+  // Public address of the site (e.g. https://adaptivelearn.example.com), used
+  // for social previews, robots.txt and sitemap.xml. If it isn't known at
+  // build time, the placeholder __SITE_URL__ is kept and the Express server
+  // fills in its real address when it serves those files.
+  const siteUrl =
+    env.VITE_SITE_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    (command === 'serve' ? 'http://localhost:5174' : '__SITE_URL__')
 
   return {
     plugins: [react(), tailwindcss(), seoPlugin(siteUrl)],
