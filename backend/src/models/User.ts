@@ -20,6 +20,8 @@ const userSchema = new Schema(
     // select:false → never loaded unless a query explicitly asks for it.
     password: { type: String, required: true, select: false },
     role: { type: String, enum: ROLES, required: true, default: 'student' },
+    // When the user accepted the Terms & Privacy Policy (consent record).
+    termsAcceptedAt: { type: Date, default: null },
     // SHA-256 of the user's current refresh token. Lets the server revoke it
     // (logout) and detect reuse of an old one. null = no active session.
     refreshTokenHash: { type: String, select: false, default: null },

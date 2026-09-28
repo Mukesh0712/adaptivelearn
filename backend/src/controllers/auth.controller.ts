@@ -63,6 +63,7 @@ export async function register(req: Request, res: Response) {
     email,
     password: await hashPassword(password),
     role,
+    termsAcceptedAt: new Date(),
   });
 
   res.status(201).json({
@@ -98,7 +99,11 @@ export async function login(req: Request, res: Response) {
 export async function refresh(req: Request, res: Response) {
   const token: unknown = req.cookies?.[REFRESH_COOKIE];
   if (typeof token !== 'string' || !token) {
-    throw ApiError.unauthorized('No refresh token');
+    // No cookie = simply not logged in (e.g. a visitor opening the login
+    // page). That's a normal state, not an error, so answer "204 No Content"
+    // instead of 401 and keep the browser console clean.
+    res.status(204).end();
+    return;
   }
 
   let payload: { sub: string; rememberMe: boolean };

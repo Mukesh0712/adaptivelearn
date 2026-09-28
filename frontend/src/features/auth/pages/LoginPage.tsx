@@ -9,6 +9,7 @@ import { useLoginMutation } from '../authApi'
 import { loginSchema } from '../schemas'
 import { useAuthForm } from '../useAuthForm'
 import { AuthCard, FieldError, FormError } from './AuthCard'
+import { PageMeta } from '@/components/PageMeta'
 
 export default function LoginPage() {
   const [login, { isLoading }] = useLoginMutation()
@@ -32,7 +33,7 @@ export default function LoginPage() {
 
   return (
     <AuthCard title="Welcome back" description="Log in to your AdaptiveLearn account">
-      <title>Log in · AdaptiveLearn</title>
+      <PageMeta title="Log in" description="Log in to AdaptiveLearn: your smart classroom for students, instructors, parents and administrators." />
       {/* method="post" + name/autoComplete attributes let the browser's
           password manager offer to save and later autofill the password. */}
       <form onSubmit={handleSubmit} method="post" className="grid gap-4" noValidate>
@@ -58,7 +59,7 @@ export default function LoginPage() {
             <Label htmlFor="password">Password</Label>
             <Link
               to="/forgot-password"
-              className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              className="inline-flex min-h-6 items-center text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
             >
               Forgot password?
             </Link>

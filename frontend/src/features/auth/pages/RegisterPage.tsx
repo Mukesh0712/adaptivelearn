@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { Honeypot } from '@/components/Honeypot'
 import { toast } from 'sonner'
 import { PasswordInput } from '@/components/PasswordInput'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -12,6 +13,7 @@ import { registerSchema } from '../schemas'
 import type { RegisterRequest } from '../types'
 import { useAuthForm } from '../useAuthForm'
 import { AuthCard, FieldError, FormError } from './AuthCard'
+import { PageMeta } from '@/components/PageMeta'
 
 type SelfRole = RegisterRequest['role']
 
@@ -28,6 +30,8 @@ export default function RegisterPage() {
       password: '',
       confirmPassword: '',
       role: 'student' as SelfRole,
+      acceptTerms: false,
+      website: '',
     })
 
   // Admin is intentionally not offered: the backend rejects it anyway, and
@@ -38,8 +42,8 @@ export default function RegisterPage() {
     if (!validate()) return
     try {
       // confirmPassword is only checked in the browser; it isn't sent.
-      const { name, email, password, role } = values
-      const { message } = await register({ name, email, password, role }).unwrap()
+      const { name, email, password, role, acceptTerms, website } = values
+      const { message } = await register({ name, email, password, role, acceptTerms, website }).unwrap()
       toast.success(message)
       navigate('/login', { replace: true, state: { email } })
     } catch (err) {
@@ -49,7 +53,7 @@ export default function RegisterPage() {
 
   return (
     <AuthCard title="Create an account" description="Choose your role to get the right portal">
-      <title>Register · AdaptiveLearn</title>
+      <PageMeta title="Create an account" description="Create your free AdaptiveLearn account as a student, instructor or parent." />
       <form onSubmit={handleSubmit} method="post" className="grid gap-4" noValidate>
         <FormError message={formError} />
 
@@ -131,6 +135,32 @@ export default function RegisterPage() {
           </Select>
           <FieldError id="role-error" message={errors.role} />
         </div>
+
+        <div className="grid gap-2">
+          <div className="flex items-start gap-2">
+            <input
+              {...fieldProps('acceptTerms')}
+              name="acceptTerms"
+              type="checkbox"
+              className="mt-0.5 size-4 shrink-0 rounded border-input accent-primary"
+              checked={values.acceptTerms}
+              onChange={(e) => setField('acceptTerms', e.target.checked)}
+            />
+            <Label htmlFor="acceptTerms" className="block leading-snug font-normal">
+              I agree to the{' '}
+              <Link to="/terms" target="_blank" className="font-medium underline underline-offset-4">
+                Terms &amp; Conditions
+              </Link>{' '}
+              and{' '}
+              <Link to="/privacy" target="_blank" className="font-medium underline underline-offset-4">
+                Privacy Policy
+              </Link>
+            </Label>
+          </div>
+          <FieldError id="acceptTerms-error" message={errors.acceptTerms} />
+        </div>
+
+        <Honeypot value={values.website} onChange={(v) => setField('website', v)} />
 
         <SubmitButton loading={isLoading} loadingText="Creating account…">
           Create account

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { GraduationCap } from 'lucide-react'
+import { SiteFooterLinks } from '@/components/SiteFooterLinks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 // Centered card used by both the login and register pages.
@@ -13,7 +14,7 @@ export function AuthCard({
   children: ReactNode
 }) {
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-4">
+    <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-4">
       <div className="flex items-center gap-2 font-semibold">
         <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <GraduationCap className="size-4" />
@@ -27,7 +28,8 @@ export function AuthCard({
         </CardHeader>
         <CardContent>{children}</CardContent>
       </Card>
-    </div>
+      <SiteFooterLinks className="justify-center" />
+    </main>
   )
 }
 

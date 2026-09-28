@@ -13,6 +13,7 @@ export const registerSchema = z.object({
   email,
   password: newPassword,
   role: z.enum(SELF_REGISTER_ROLES, { error: 'Role must be student, instructor or parent' }),
+  acceptTerms: z.literal(true, { error: 'You must accept the Terms and Privacy Policy' }),
 });
 
 export const loginSchema = z.object({

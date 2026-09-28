@@ -26,6 +26,8 @@ export interface RegisterRequest {
   email: string
   password: string
   role: Exclude<Role, 'admin'>
+  acceptTerms: boolean
+  website: string // honeypot, always '' for real users
 }
 
 export interface MessageResponse {
@@ -33,7 +35,7 @@ export interface MessageResponse {
 }
 
 export interface RegisterResponse {
-  user: User
+  user?: User
   message: string
 }
 

@@ -8,6 +8,7 @@ import { useResetPasswordMutation } from '../authApi'
 import { resetPasswordSchema } from '../schemas'
 import { useAuthForm } from '../useAuthForm'
 import { AuthCard, FieldError, FormError } from './AuthCard'
+import { PageMeta } from '@/components/PageMeta'
 
 // Opened from the emailed link: /reset-password?token=<64 hex chars>
 export default function ResetPasswordPage() {
@@ -33,7 +34,7 @@ export default function ResetPasswordPage() {
   if (!/^[a-f0-9]{64}$/.test(token)) {
     return (
       <AuthCard title="Invalid reset link" description="This link is incomplete or has been altered">
-        <title>Invalid link · AdaptiveLearn</title>
+        <PageMeta title="Invalid reset link" />
         <Link to="/forgot-password" className="block text-center text-sm font-medium underline underline-offset-4">
           Request a new reset link
         </Link>
@@ -43,7 +44,7 @@ export default function ResetPasswordPage() {
 
   return (
     <AuthCard title="Choose a new password" description="You'll be logged out of all other devices">
-      <title>Reset password · AdaptiveLearn</title>
+      <PageMeta title="Reset password" description="Choose a new password for your AdaptiveLearn account." />
       <form onSubmit={handleSubmit} method="post" className="grid gap-4" noValidate>
         <FormError message={formError} />
         {formError && (

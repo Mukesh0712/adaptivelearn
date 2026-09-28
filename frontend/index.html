@@ -2,11 +2,40 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AdaptiveLearn</title>
+    <title>AdaptiveLearn · Smart classroom and personalised learning</title>
+    <meta
+      name="description"
+      content="AdaptiveLearn is an AI-powered smart classroom platform with personalised learning for students and dedicated portals for instructors, parents and administrators."
+    />
+    <meta name="theme-color" content="#171717" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Social preview (WhatsApp, LinkedIn, Facebook, X). Needs absolute URLs;
+         __SITE_URL__ is replaced at build time from VITE_SITE_URL. -->
+    <link rel="canonical" href="__SITE_URL__/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="AdaptiveLearn" />
+    <meta property="og:title" content="AdaptiveLearn · Smart classroom and personalised learning" />
+    <meta
+      property="og:description"
+      content="AI-powered smart classroom with personalised learning and portals for students, instructors, parents and admins."
+    />
+    <meta property="og:url" content="__SITE_URL__/" />
+    <meta property="og:image" content="__SITE_URL__/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="AdaptiveLearn: smart classroom, personalised learning" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="__SITE_URL__/og-image.jpg" />
   </head>
   <body>
+    <noscript>AdaptiveLearn needs JavaScript enabled to run.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

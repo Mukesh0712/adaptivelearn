@@ -3,17 +3,24 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import mongoose from 'mongoose';
-import { env } from './config/env.js';
+import { env, isProduction } from './config/env.js';
 import { authRouter } from './routes/auth.routes.js';
 import { testRouter } from './routes/test.routes.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
+import { enforceHttps } from './middleware/enforceHttps.js';
 
 // The Express app is built here without calling listen(), so it can later be
 // imported by tests without starting a real server.
 export const app = express();
 
-app.use(helmet()); // standard security headers (no sniffing, no framing, etc.)
+if (isProduction) app.set('trust proxy', env.TRUST_PROXY);
+app.disable('x-powered-by'); // don't advertise the server technology
+
+app.use(enforceHttps); // production only: http:// → https://
+// Standard security headers. Includes Strict-Transport-Security (HSTS): once a
+// browser has seen it over HTTPS, it will only ever use HTTPS for this site.
+app.use(helmet());
 app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }));
 app.use(requestLogger);
 app.use(express.json({ limit: '100kb' }));

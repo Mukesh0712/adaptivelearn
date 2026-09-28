@@ -8,10 +8,13 @@ import {
   ForgotPasswordPage,
   InstructorDashboard,
   LoginPage,
+  NotFoundPage,
   ParentDashboard,
+  PrivacyPage,
   RegisterPage,
   ResetPasswordPage,
   StudentDashboard,
+  TermsPage,
 } from './lazyPages'
 
 // Guards are nested "layout routes": a request for /admin passes through
@@ -37,6 +40,9 @@ export const router = createBrowserRouter([
       // Not a guest-only page: the emailed link must work even if the user
       // happens to be logged in on this browser.
       { path: '/reset-password', element: <ResetPasswordPage /> },
+      // Public legal pages, reachable whether or not the visitor is logged in.
+      { path: '/privacy', element: <PrivacyPage /> },
+      { path: '/terms', element: <TermsPage /> },
       {
         element: <ProtectedRoute />,
         children: [
@@ -68,7 +74,7 @@ export const router = createBrowserRouter([
         ],
       },
       { path: '/', element: <HomeRedirect /> },
-      { path: '*', element: <HomeRedirect /> }, // unknown URL → your home
+      { path: '*', element: <NotFoundPage /> }, // unknown URL → 404 page
     ],
   },
 ])

@@ -35,6 +35,7 @@ export function refreshSession(
   extraOptions: object = {},
 ): Promise<AuthResponse | null> {
   refreshInFlight ??= (async () => {
+    // 200 → new tokens. 204 (no session cookie) or 401 (invalid session) → logged out.
     const result = await rawBaseQuery({ url: '/auth/refresh', method: 'POST' }, api, extraOptions)
     if (result.data) {
       const data = result.data as AuthResponse

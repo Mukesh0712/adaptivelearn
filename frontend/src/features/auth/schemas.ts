@@ -15,6 +15,18 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 })
 
+// "Passwords match" check. `when` makes it run even if OTHER fields are
+// invalid (by default zod skips object-level checks until every field
+// passes), so all errors are shown together.
+const passwordsMatch = {
+  path: ['confirmPassword'],
+  message: 'Passwords do not match',
+  when: (payload: { value: unknown }) => {
+    const v = payload.value as { password?: unknown; confirmPassword?: unknown }
+    return typeof v.password === 'string' && typeof v.confirmPassword === 'string' && v.confirmPassword !== ''
+  },
+}
+
 export const registerSchema = z
   .object({
     name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
@@ -22,20 +34,16 @@ export const registerSchema = z
     password: newPassword,
     confirmPassword: z.string().min(1, 'Please confirm your password'),
     role: z.enum(SELF_REGISTER_ROLES),
+    acceptTerms: z.literal(true, { error: 'Please accept the Terms and Privacy Policy' }),
+    website: z.string(),
   })
-  .refine((v) => v.password === v.confirmPassword, {
-    path: ['confirmPassword'],
-    message: 'Passwords do not match',
-  })
+  .refine((v) => v.password === v.confirmPassword, passwordsMatch)
 
-export const forgotPasswordSchema = z.object({ email })
+export const forgotPasswordSchema = z.object({ email, website: z.string() })
 
 export const resetPasswordSchema = z
   .object({ password: newPassword, confirmPassword: z.string().min(1, 'Please confirm your password') })
-  .refine((v) => v.password === v.confirmPassword, {
-    path: ['confirmPassword'],
-    message: 'Passwords do not match',
-  })
+  .refine((v) => v.password === v.confirmPassword, passwordsMatch)
 
 export type FieldErrors = Record<string, string>
 

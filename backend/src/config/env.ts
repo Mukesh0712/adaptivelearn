@@ -8,6 +8,10 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(5000),
   MONGODB_URI: z.string({ error: 'MONGODB_URI is required' }).min(1, 'MONGODB_URI is required'),
   CLIENT_ORIGIN: z.url().default('http://localhost:5174'),
+  // Number of proxies in front of the app in production (Render, Railway,
+  // Nginx...). Needed so HTTPS detection and rate limiting see the real
+  // protocol and client IP. 0 = the app is directly exposed.
+  TRUST_PROXY: z.coerce.number().int().min(0).default(1),
   JWT_ACCESS_SECRET: z
     .string({ error: 'JWT_ACCESS_SECRET is required' })
     .min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),

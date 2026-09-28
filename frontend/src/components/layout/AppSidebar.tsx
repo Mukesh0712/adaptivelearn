@@ -4,6 +4,7 @@ import { useAuth } from '@/app/hooks'
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -14,6 +15,7 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar'
 import { ROLE_HOME, ROLE_LABEL } from '@/lib/roles'
+import { SiteFooterLinks } from '@/components/SiteFooterLinks'
 import { NAV_ITEMS } from './nav'
 
 export function AppSidebar() {
@@ -64,6 +66,9 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="group-data-[collapsible=icon]:hidden">
+        <SiteFooterLinks className="px-2" />
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )
