@@ -12,6 +12,10 @@ const envSchema = z.object({
     .string({ error: 'JWT_ACCESS_SECRET is required' })
     .min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
   ACCESS_TOKEN_TTL: z.string().default('15m'),
+  JWT_REFRESH_SECRET: z
+    .string({ error: 'JWT_REFRESH_SECRET is required' })
+    .min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
+  REFRESH_TOKEN_TTL: z.string().default('7d'),
 });
 
 const parsed = envSchema.safeParse(process.env);

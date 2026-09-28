@@ -20,6 +20,9 @@ const userSchema = new Schema(
     // select:false → never loaded unless a query explicitly asks for it.
     password: { type: String, required: true, select: false },
     role: { type: String, enum: ROLES, required: true, default: 'student' },
+    // SHA-256 of the user's current refresh token. Lets the server revoke it
+    // (logout) and detect reuse of an old one. null = no active session.
+    refreshTokenHash: { type: String, select: false, default: null },
   },
   {
     timestamps: true, // adds createdAt + updatedAt automatically
@@ -30,6 +33,7 @@ const userSchema = new Schema(
         delete ret._id;
         delete ret.__v;
         delete ret.password;
+        delete ret.refreshTokenHash;
         return ret;
       },
     },
