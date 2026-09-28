@@ -6,3 +6,4 @@ dist/
 venv/
 dist/
 *.log
+server-log.txt
