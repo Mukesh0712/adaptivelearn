@@ -8,7 +8,7 @@ export const SITE = {
   description:
     'AdaptiveLearn is an AI-powered smart classroom platform with personalised learning for students and dedicated portals for instructors, parents and administrators.',
   // TODO: replace with the real contact / grievance email before launch.
-  contactEmail: 'contact@example.com',
+  contactEmail: 'pimpalkarmukesh07@gmail.com',
   // TODO: replace with the legal name of the organisation running the site.
   organisation: 'AdaptiveLearn',
   // Last time the Privacy Policy / Terms text changed.
