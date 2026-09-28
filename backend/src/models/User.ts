@@ -23,6 +23,9 @@ const userSchema = new Schema(
     // SHA-256 of the user's current refresh token. Lets the server revoke it
     // (logout) and detect reuse of an old one. null = no active session.
     refreshTokenHash: { type: String, select: false, default: null },
+    // Forgot-password: SHA-256 of the emailed reset token + when it expires.
+    resetPasswordTokenHash: { type: String, select: false, default: null },
+    resetPasswordExpiresAt: { type: Date, select: false, default: null },
   },
   {
     timestamps: true, // adds createdAt + updatedAt automatically
@@ -34,6 +37,8 @@ const userSchema = new Schema(
         delete ret.__v;
         delete ret.password;
         delete ret.refreshTokenHash;
+        delete ret.resetPasswordTokenHash;
+        delete ret.resetPasswordExpiresAt;
         return ret;
       },
     },

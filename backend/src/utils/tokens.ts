@@ -29,22 +29,31 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
 
 // Refresh tokens use a DIFFERENT secret, so an access token can never be
 // passed off as a refresh token (or vice versa). The random jti makes every
-// issued token unique, even two issued in the same second.
-export function signRefreshToken(userId: string): { token: string; expiresAt: Date } {
-  const token = jwt.sign({ sub: userId }, env.JWT_REFRESH_SECRET, {
-    expiresIn: env.REFRESH_TOKEN_TTL as ExpiresIn,
+// issued token unique, even two issued in the same second. "rm" remembers
+// whether the user ticked "Remember me", so rotation keeps the same choice.
+export function signRefreshToken(
+  userId: string,
+  rememberMe: boolean,
+): { token: string; expiresAt: Date } {
+  const token = jwt.sign({ sub: userId, rm: rememberMe }, env.JWT_REFRESH_SECRET, {
+    expiresIn: (rememberMe ? env.REMEMBER_ME_TTL : env.REFRESH_TOKEN_TTL) as ExpiresIn,
     jwtid: crypto.randomUUID(),
   });
   const { exp } = jwt.decode(token) as { exp: number };
   return { token, expiresAt: new Date(exp * 1000) };
 }
 
-export function verifyRefreshToken(token: string): { sub: string } {
+export function verifyRefreshToken(token: string): { sub: string; rememberMe: boolean } {
   const decoded = jwt.verify(token, env.JWT_REFRESH_SECRET);
   if (typeof decoded === 'string' || !decoded.sub) {
     throw new Error('Malformed token payload');
   }
-  return { sub: decoded.sub };
+  return { sub: decoded.sub, rememberMe: decoded.rm === true };
+}
+
+// Random single-use token for password-reset links (256 bits of randomness).
+export function generateResetToken(): string {
+  return crypto.randomBytes(32).toString('hex');
 }
 
 // We store only a hash of the refresh token, so a leaked database can't be

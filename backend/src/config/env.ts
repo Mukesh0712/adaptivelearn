@@ -15,7 +15,20 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z
     .string({ error: 'JWT_REFRESH_SECRET is required' })
     .min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
-  REFRESH_TOKEN_TTL: z.string().default('7d'),
+  // Session length WITHOUT "Remember me" (cookie also dies when the browser closes).
+  REFRESH_TOKEN_TTL: z.string().default('1d'),
+  // Session length WITH "Remember me" checked.
+  REMEMBER_ME_TTL: z.string().default('30d'),
+
+  PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().positive().default(30),
+
+  // Email (optional). Without SMTP_USER/SMTP_PASS, reset links are printed to
+  // the console in development instead of being emailed.
+  SMTP_HOST: z.string().default('smtp.gmail.com'),
+  SMTP_PORT: z.coerce.number().int().positive().default(465),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  MAIL_FROM: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

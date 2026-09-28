@@ -23,7 +23,10 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
 
   // MongoDB unique-index violation (e.g. two sign-ups with the same email at once).
   if (typeof err === 'object' && err !== null && 'code' in err && err.code === 11000) {
-    res.status(409).json({ message: 'A record with that value already exists' });
+    const isEmail = 'keyPattern' in err && (err.keyPattern as Record<string, unknown>)?.email;
+    res.status(409).json({
+      message: isEmail ? 'An account with this email already exists' : 'A record with that value already exists',
+    });
     return;
   }
 

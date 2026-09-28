@@ -10,8 +10,10 @@ const baseOptions: CookieOptions = {
   path: '/api/auth', // only sent to auth endpoints, not with every API call
 };
 
-export function setRefreshCookie(res: Response, token: string, expires: Date) {
-  res.cookie(REFRESH_COOKIE, token, { ...baseOptions, expires });
+// With `expires` the cookie survives a browser restart ("Remember me").
+// Without it, it's a session cookie that the browser deletes when closed.
+export function setRefreshCookie(res: Response, token: string, expires?: Date) {
+  res.cookie(REFRESH_COOKIE, token, expires ? { ...baseOptions, expires } : baseOptions);
 }
 
 export function clearRefreshCookie(res: Response) {
