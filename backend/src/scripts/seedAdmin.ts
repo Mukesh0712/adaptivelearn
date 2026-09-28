@@ -1,7 +1,9 @@
 // Creates the admin account. Admins cannot sign up through the public API,
 // so this script (run by someone with server access) is the only way in.
 //
-//   npm run seed:admin
+//   npm run seed:admin                       create the admin if missing
+//   npm run seed:admin -- --reset-password   also overwrite an existing admin's
+//                                            password with ADMIN_PASSWORD
 //
 // Reads ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD from backend/.env.
 import { z } from 'zod';
@@ -17,6 +19,8 @@ const adminSchema = z.object({
     .min(8, 'ADMIN_PASSWORD must be at least 8 characters')
     .max(72),
 });
+
+const resetPassword = process.argv.includes('--reset-password');
 
 async function main(): Promise<number> {
   const parsed = adminSchema.safeParse(process.env);
@@ -34,7 +38,20 @@ async function main(): Promise<number> {
     const existing = await UserModel.findOne({ email: ADMIN_EMAIL });
     if (existing) {
       if (existing.role === 'admin') {
-        console.log(`Admin ${ADMIN_EMAIL} already exists. Nothing to do.`);
+        if (!resetPassword) {
+          console.log(
+            `Admin ${ADMIN_EMAIL} already exists. Nothing to do.\n` +
+              'To change its password to ADMIN_PASSWORD, run: npm run seed:admin -- --reset-password',
+          );
+          return 0;
+        }
+        // New password + clear the refresh token hash, which logs the admin
+        // out everywhere (old sessions shouldn't survive a password reset).
+        await UserModel.updateOne(
+          { _id: existing._id },
+          { password: await hashPassword(ADMIN_PASSWORD), refreshTokenHash: null },
+        );
+        console.log(`Password reset for admin ${ADMIN_EMAIL}. Existing sessions were logged out.`);
         return 0;
       }
       // Never silently promote an existing account to admin.
