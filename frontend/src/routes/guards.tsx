@@ -26,11 +26,17 @@ export function RoleRoute({ allow }: { allow: Role[] }) {
   return <Outlet />
 }
 
-// Login/register pages: an already logged-in user is sent to their portal.
+// Login/register pages: an already logged-in user is sent on. This is also
+// what moves the user after a successful login/register: to the page they
+// originally asked for (saved by ProtectedRoute), else their own portal.
 export function GuestRoute() {
   const { user } = useAuth()
+  const location = useLocation()
 
-  if (user) return <Navigate to={ROLE_HOME[user.role]} replace />
+  if (user) {
+    const from = (location.state as { from?: string } | null)?.from
+    return <Navigate to={from ?? ROLE_HOME[user.role]} replace />
+  }
   return <Outlet />
 }
 

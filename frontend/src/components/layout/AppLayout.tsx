@@ -1,37 +1,34 @@
-import { Outlet, useNavigate } from 'react-router'
+import { Outlet } from 'react-router'
 import { useAuth } from '@/app/hooks'
-import { Button } from '@/components/ui/button'
-import { useLogoutMutation } from '@/features/auth/authApi'
+import { Separator } from '@/components/ui/separator'
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { ROLE_LABEL } from '@/lib/roles'
+import { AppSidebar } from './AppSidebar'
+import { UserMenu } from './UserMenu'
 
-// TEMPORARY layout so the routing can be tested now. It will be replaced by
-// the shadcn sidebar + navbar shell once those components are added.
+// Shell shared by all four portals: sidebar on the left, navbar on top,
+// and the current page (<Outlet />) in the main area.
 export function AppLayout() {
   const { user } = useAuth()
-  const [logout, { isLoading }] = useLogoutMutation()
-  const navigate = useNavigate()
-
-  const handleLogout = async () => {
-    await logout()
-    navigate('/login', { replace: true })
-  }
 
   return (
-    <div className="min-h-svh bg-background">
-      <header className="flex h-14 items-center justify-between border-b px-4">
-        <span className="font-semibold">AdaptiveLearn</span>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-muted-foreground">
-            {user?.name} · {user ? ROLE_LABEL[user.role] : ''}
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 data-vertical:h-4 data-vertical:self-center" />
+          <span className="text-sm font-medium">
+            {user ? `${ROLE_LABEL[user.role]} portal` : ''}
           </span>
-          <Button variant="outline" size="sm" onClick={handleLogout} disabled={isLoading}>
-            Log out
-          </Button>
-        </div>
-      </header>
-      <main className="p-6">
-        <Outlet />
-      </main>
-    </div>
+          <div className="ml-auto">
+            <UserMenu />
+          </div>
+        </header>
+        <main className="flex-1 p-4 md:p-6">
+          <Outlet />
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
