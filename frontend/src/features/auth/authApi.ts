@@ -1,0 +1,52 @@
+import { baseApi, refreshSession } from '@/services/baseApi'
+import { credentialsReceived, loggedOut } from './authSlice'
+import type { AuthResponse, LoginRequest, RegisterRequest, User } from './types'
+
+export const authApi = baseApi.injectEndpoints({
+  endpoints: (build) => ({
+    register: build.mutation<AuthResponse, RegisterRequest>({
+      query: (body) => ({ url: '/auth/register', method: 'POST', body }),
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        const { data } = await queryFulfilled
+        dispatch(credentialsReceived(data))
+      },
+    }),
+    login: build.mutation<AuthResponse, LoginRequest>({
+      query: (body) => ({ url: '/auth/login', method: 'POST', body }),
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        const { data } = await queryFulfilled
+        dispatch(credentialsReceived(data))
+      },
+    }),
+    logout: build.mutation<void, void>({
+      query: () => ({ url: '/auth/logout', method: 'POST' }),
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        // Log out locally even if the request fails (e.g. server down).
+        await queryFulfilled.catch(() => undefined)
+        dispatch(loggedOut())
+        dispatch(baseApi.util.resetApiState()) // drop any cached user data
+      },
+    }),
+    // Uses the shared refreshSession() so it can never race with an automatic
+    // refresh triggered by a 401 elsewhere.
+    refresh: build.mutation<AuthResponse, void>({
+      async queryFn(_arg, api) {
+        const data = await refreshSession(api)
+        return data
+          ? { data }
+          : { error: { status: 401, data: { message: 'No active session' } } }
+      },
+    }),
+    me: build.query<{ user: User }, void>({
+      query: () => '/auth/me',
+    }),
+  }),
+})
+
+export const {
+  useRegisterMutation,
+  useLoginMutation,
+  useLogoutMutation,
+  useRefreshMutation,
+  useMeQuery,
+} = authApi

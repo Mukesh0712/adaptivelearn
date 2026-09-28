@@ -1,13 +1,15 @@
-import './App.css'
+import { Provider } from 'react-redux'
+import { RouterProvider } from 'react-router'
+import { store } from '@/app/store'
+import { AuthBootstrap } from '@/features/auth/AuthBootstrap'
+import { router } from '@/routes/router'
 
-function App() {
+export default function App() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <h1 className="text-4xl font-bold">
-        AdaptiveLearn
-      </h1>
-    </div>
-  );
+    <Provider store={store}>
+      <AuthBootstrap>
+        <RouterProvider router={router} />
+      </AuthBootstrap>
+    </Provider>
+  )
 }
-
-export default App;
