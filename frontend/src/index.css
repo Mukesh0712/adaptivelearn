@@ -60,7 +60,9 @@
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
     --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
+    /* Darker than shadcn's default (0.556) so secondary text meets WCAG AA
+       contrast (4.5:1) on both white and the light-grey muted background. */
+    --muted-foreground: oklch(0.5 0 0);
     --accent: oklch(0.97 0 0);
     --accent-foreground: oklch(0.205 0 0);
     --destructive: oklch(0.577 0.245 27.325);
@@ -127,4 +129,19 @@
   html {
     @apply font-sans;
     }
+}
+/* Tailwind v4 no longer gives buttons a pointer cursor. Restore it for
+   everything clickable (buttons, menu items, select options, links). */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([data-disabled]),
+  [role="option"]:not([data-disabled]),
+  [role="combobox"],
+  [role="checkbox"],
+  input[type="checkbox"],
+  label[for],
+  a[href] {
+    cursor: pointer;
+  }
 }

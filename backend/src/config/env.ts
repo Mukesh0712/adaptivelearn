@@ -1,0 +1,49 @@
+import 'dotenv/config';
+import { z } from 'zod';
+
+// Validate environment variables once at startup so a missing/typo'd value
+// crashes immediately with a clear message instead of failing later at runtime.
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  PORT: z.coerce.number().int().positive().default(5000),
+  MONGODB_URI: z.string({ error: 'MONGODB_URI is required' }).min(1, 'MONGODB_URI is required'),
+  CLIENT_ORIGIN: z.url().default('http://localhost:5174'),
+  // Number of proxies in front of the app in production (Render, Railway,
+  // Nginx...). Needed so HTTPS detection and rate limiting see the real
+  // protocol and client IP. 0 = the app is directly exposed.
+  TRUST_PROXY: z.coerce.number().int().min(0).default(1),
+  JWT_ACCESS_SECRET: z
+    .string({ error: 'JWT_ACCESS_SECRET is required' })
+    .min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
+  ACCESS_TOKEN_TTL: z.string().default('15m'),
+  JWT_REFRESH_SECRET: z
+    .string({ error: 'JWT_REFRESH_SECRET is required' })
+    .min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
+  // Session length WITHOUT "Remember me" (cookie also dies when the browser closes).
+  REFRESH_TOKEN_TTL: z.string().default('1d'),
+  // Session length WITH "Remember me" checked.
+  REMEMBER_ME_TTL: z.string().default('30d'),
+
+  PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().positive().default(30),
+
+  // Email (optional). Without SMTP_USER/SMTP_PASS, reset links are printed to
+  // the console in development instead of being emailed.
+  SMTP_HOST: z.string().default('smtp.gmail.com'),
+  SMTP_PORT: z.coerce.number().int().positive().default(465),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  MAIL_FROM: z.string().optional(),
+});
+
+const parsed = envSchema.safeParse(process.env);
+
+if (!parsed.success) {
+  console.error('Invalid environment configuration:');
+  for (const issue of parsed.error.issues) {
+    console.error(`  - ${issue.path.join('.')}: ${issue.message}`);
+  }
+  process.exit(1);
+}
+
+export const env = parsed.data;
+export const isProduction = env.NODE_ENV === 'production';

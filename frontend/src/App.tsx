@@ -1,13 +1,20 @@
-import './App.css'
+import { Provider } from 'react-redux'
+import { RouterProvider } from 'react-router'
+import { Toaster } from '@/components/ui/sonner'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { store } from '@/app/store'
+import { AuthBootstrap } from '@/features/auth/AuthBootstrap'
+import { router } from '@/routes/router'
 
-function App() {
+export default function App() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <h1 className="text-4xl font-bold">
-        AdaptiveLearn
-      </h1>
-    </div>
-  );
+    <Provider store={store}>
+      <TooltipProvider>
+        <AuthBootstrap>
+          <RouterProvider router={router} />
+        </AuthBootstrap>
+        <Toaster />
+      </TooltipProvider>
+    </Provider>
+  )
 }
-
-export default App;
