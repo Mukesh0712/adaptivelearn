@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { env } from '../config/env.js';
+import { env, isProduction } from '../config/env.js';
 import { UserModel, type UserDocument } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
 import {
@@ -165,8 +165,13 @@ export async function forgotPassword(req: Request, res: Response) {
     // Not awaited: waiting for the mail server would make responses for real
     // accounts slower than for unknown emails, leaking which ones exist.
     sendPasswordResetEmail(user.email, user.name, link).catch((err: unknown) => {
-      console.error('Failed to send password reset email:', err instanceof Error ? err.message : err);
+      console.error(
+        `Email: FAILED to send password reset to ${user.email}:`,
+        err instanceof Error ? err.message : err,
+      );
     });
+  } else if (!isProduction) {
+    console.log(`Email: no account for ${email}, so no reset email was sent (the user still sees the same reply)`);
   }
 
   res.json({ message: 'If an account exists for that email, we have sent a password reset link.' });
