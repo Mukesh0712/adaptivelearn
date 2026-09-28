@@ -19,4 +19,12 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // shadcn/ui components export style helpers (e.g. buttonVariants) next to
+    // the component, which this Fast Refresh rule flags. That's intended.
+    files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])
