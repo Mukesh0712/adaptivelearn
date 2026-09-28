@@ -1,0 +1,13 @@
+{
+  "name": "adaptivelearn",
+  "private": true,
+  "description": "AdaptiveLearn: AI-powered smart classroom platform (monorepo root)",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "npm ci --include=dev --prefix backend && npm ci --include=dev --prefix frontend && npm run build --prefix backend && npm run build --prefix frontend",
+    "start": "node backend/dist/server.js",
+    "seed:admin": "node backend/dist/scripts/seedAdmin.js"
+  }
+}

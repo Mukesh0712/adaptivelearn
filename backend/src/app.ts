@@ -9,6 +9,7 @@ import { testRouter } from './routes/test.routes.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { enforceHttps } from './middleware/enforceHttps.js';
+import { serveFrontend } from './middleware/serveFrontend.js';
 
 // The Express app is built here without calling listen(), so it can later be
 // imported by tests without starting a real server.
@@ -19,8 +20,21 @@ app.disable('x-powered-by'); // don't advertise the server technology
 
 app.use(enforceHttps); // production only: http:// → https://
 // Standard security headers. Includes Strict-Transport-Security (HSTS): once a
-// browser has seen it over HTTPS, it will only ever use HTTPS for this site.
-app.use(helmet());
+// browser has seen it over HTTPS, it will only ever use HTTPS for this site,
+// and a Content-Security-Policy that only lets the page load scripts, styles
+// and data from this site (plus the analytics host, if configured). That
+// blocks most injected-script (XSS) attacks.
+const analytics = env.ANALYTICS_ORIGIN ? [env.ANALYTICS_ORIGIN] : [];
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        scriptSrc: ["'self'", ...analytics],
+        connectSrc: ["'self'", ...analytics],
+      },
+    },
+  }),
+);
 app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }));
 app.use(requestLogger);
 app.use(express.json({ limit: '100kb' }));
@@ -35,6 +49,9 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/test', testRouter);
+
+// Production: also serve the React app from this same server.
+if (isProduction) serveFrontend(app);
 
 // These two must be registered last: unknown routes → 404, then all errors → JSON.
 app.use(notFound);

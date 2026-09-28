@@ -7,11 +7,16 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(5000),
   MONGODB_URI: z.string({ error: 'MONGODB_URI is required' }).min(1, 'MONGODB_URI is required'),
-  CLIENT_ORIGIN: z.url().default('http://localhost:5174'),
+  // Public address of the site. On Render it defaults to the service's own
+  // https://<name>.onrender.com address (RENDER_EXTERNAL_URL).
+  CLIENT_ORIGIN: z.url().default(process.env.RENDER_EXTERNAL_URL ?? 'http://localhost:5174'),
   // Number of proxies in front of the app in production (Render, Railway,
   // Nginx...). Needed so HTTPS detection and rate limiting see the real
   // protocol and client IP. 0 = the app is directly exposed.
   TRUST_PROXY: z.coerce.number().int().min(0).default(1),
+  // Origin of the Umami analytics script (e.g. https://cloud.umami.is), added
+  // to the Content-Security-Policy so the browser allows it. Optional.
+  ANALYTICS_ORIGIN: z.url().optional(),
   JWT_ACCESS_SECRET: z
     .string({ error: 'JWT_ACCESS_SECRET is required' })
     .min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
