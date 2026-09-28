@@ -1,5 +1,4 @@
 import type { Request, Response } from 'express';
-import { Types } from 'mongoose';
 import { env } from '../config/env.js';
 import { UserModel, type UserDocument } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -44,33 +43,32 @@ function sendSession(
   user: UserDocument,
   refresh: NewRefresh,
   rememberMe: boolean,
-  status = 200,
 ) {
   setRefreshCookie(res, refresh.token, rememberMe ? refresh.expiresAt : undefined);
-  res.status(status).json({
+  res.json({
     user: user.toJSON(),
     accessToken: signAccessToken({ sub: user.id, role: user.role }),
   });
 }
 
-// 1 DB round trip: the user id is generated up front so the refresh token
-// can be signed before the insert. A duplicate email is rejected by the
-// unique index (→ 409 in errorHandler), so no separate "exists?" query.
+// Creates the account only; it does NOT log the user in. The user is sent to
+// the login page and signs in there (which is also where the browser offers
+// to save the password). 1 DB round trip: a duplicate email is rejected by
+// the unique index (→ 409 in errorHandler), so no separate "exists?" query.
 export async function register(req: Request, res: Response) {
   const { name, email, password, role } = req.body as RegisterInput;
 
-  const _id = new Types.ObjectId();
-  const refresh = newRefreshToken(_id.toString(), false);
   const user = await UserModel.create({
-    _id,
     name,
     email,
     password: await hashPassword(password),
     role,
-    refreshTokenHash: refresh.hash,
   });
 
-  sendSession(res, user, refresh, false, 201);
+  res.status(201).json({
+    user: user.toJSON(),
+    message: 'Account created. Please log in.',
+  });
 }
 
 // 2 DB round trips: find the user, then store the new refresh token hash.

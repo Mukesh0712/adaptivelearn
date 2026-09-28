@@ -32,6 +32,11 @@ export interface MessageResponse {
   message: string
 }
 
+export interface RegisterResponse {
+  user: User
+  message: string
+}
+
 // Error body sent by the backend's errorHandler.
 export interface ApiErrorBody {
   message: string

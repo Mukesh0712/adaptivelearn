@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { PasswordInput } from '@/components/PasswordInput'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -20,6 +20,7 @@ const roleItems = Object.fromEntries(SELF_REGISTER_ROLES.map((r) => [r, ROLE_LAB
 
 export default function RegisterPage() {
   const [register, { isLoading }] = useRegisterMutation()
+  const navigate = useNavigate()
   const { values, setField, errors, formError, validate, handleServerError, fieldProps } =
     useAuthForm(registerSchema, {
       name: '',
@@ -30,16 +31,17 @@ export default function RegisterPage() {
     })
 
   // Admin is intentionally not offered: the backend rejects it anyway, and
-  // admins are created with the seed script. On success GuestRoute sends
-  // the new user straight to their portal.
+  // admins are created with the seed script. On success the user is sent to
+  // the login page with their email already filled in.
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!validate()) return
     try {
       // confirmPassword is only checked in the browser; it isn't sent.
       const { name, email, password, role } = values
-      const { user } = await register({ name, email, password, role }).unwrap()
-      toast.success(`Account created. Welcome, ${user.name.split(' ')[0]}!`)
+      const { message } = await register({ name, email, password, role }).unwrap()
+      toast.success(message)
+      navigate('/login', { replace: true, state: { email } })
     } catch (err) {
       handleServerError(err)
     }

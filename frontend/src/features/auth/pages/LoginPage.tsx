@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { toast } from 'sonner'
 import { PasswordInput } from '@/components/PasswordInput'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -12,8 +12,10 @@ import { AuthCard, FieldError, FormError } from './AuthCard'
 
 export default function LoginPage() {
   const [login, { isLoading }] = useLoginMutation()
+  // Coming from the register page: the new account's email is pre-filled.
+  const prefilledEmail = (useLocation().state as { email?: string } | null)?.email ?? ''
   const { values, setField, errors, formError, validate, handleServerError, fieldProps } =
-    useAuthForm(loginSchema, { email: '', password: '', rememberMe: false })
+    useAuthForm(loginSchema, { email: prefilledEmail, password: '', rememberMe: false })
 
   // On success the auth state becomes "authenticated", and GuestRoute
   // redirects to the right portal automatically.
@@ -43,7 +45,7 @@ export default function LoginPage() {
             name="email"
             type="email"
             autoComplete="username"
-            autoFocus
+            autoFocus={!prefilledEmail}
             placeholder="you@example.com"
             value={values.email}
             onChange={(e) => setField('email', e.target.value)}
@@ -65,6 +67,7 @@ export default function LoginPage() {
             {...fieldProps('password')}
             name="password"
             autoComplete="current-password"
+            autoFocus={!!prefilledEmail}
             value={values.password}
             onChange={(e) => setField('password', e.target.value)}
           />

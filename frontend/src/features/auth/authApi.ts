@@ -1,15 +1,19 @@
 import { baseApi, refreshSession } from '@/services/baseApi'
 import { credentialsReceived, loggedOut } from './authSlice'
-import type { AuthResponse, LoginRequest, MessageResponse, RegisterRequest, User } from './types'
+import type {
+  AuthResponse,
+  LoginRequest,
+  MessageResponse,
+  RegisterRequest,
+  RegisterResponse,
+  User,
+} from './types'
 
 export const authApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
-    register: build.mutation<AuthResponse, RegisterRequest>({
+    // Registration only creates the account; the user then logs in.
+    register: build.mutation<RegisterResponse, RegisterRequest>({
       query: (body) => ({ url: '/auth/register', method: 'POST', body }),
-      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
-        const { data } = await queryFulfilled
-        dispatch(credentialsReceived(data))
-      },
     }),
     login: build.mutation<AuthResponse, LoginRequest>({
       query: (body) => ({ url: '/auth/login', method: 'POST', body }),
