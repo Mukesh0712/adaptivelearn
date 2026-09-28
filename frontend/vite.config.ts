@@ -8,7 +8,9 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd())
   // Public address of the site (e.g. https://adaptivelearn.example.com).
   // Set VITE_SITE_URL when building for production.
-  const siteUrl = env.VITE_SITE_URL || 'http://localhost:5174'
+  // On Render, RENDER_EXTERNAL_URL (the service's https://….onrender.com
+  // address) is used when VITE_SITE_URL isn't set.
+  const siteUrl = env.VITE_SITE_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:5174'
 
   return {
     plugins: [react(), tailwindcss(), seoPlugin(siteUrl)],
