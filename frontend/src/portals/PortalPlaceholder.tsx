@@ -8,6 +8,7 @@ export function PortalPlaceholder({ title }: { title: string }) {
 
   return (
     <div className="space-y-6">
+      <title>{`${title} · AdaptiveLearn`}</title>
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         <p className="text-muted-foreground">

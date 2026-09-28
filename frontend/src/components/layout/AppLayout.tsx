@@ -1,3 +1,5 @@
+import { Suspense } from 'react'
+import { LoaderCircle } from 'lucide-react'
 import { Outlet } from 'react-router'
 import { useAuth } from '@/app/hooks'
 import { Separator } from '@/components/ui/separator'
@@ -8,7 +10,7 @@ import { UserMenu } from './UserMenu'
 
 // Shell shared by all four portals: sidebar on the left, navbar on top,
 // and the current page (<Outlet />) in the main area.
-export function AppLayout() {
+export default function AppLayout() {
   const { user } = useAuth()
 
   return (
@@ -26,7 +28,12 @@ export function AppLayout() {
           </div>
         </header>
         <main className="flex-1 p-4 md:p-6">
-          <Outlet />
+          {/* Sidebar and navbar stay visible while a page's code loads. */}
+          <Suspense
+            fallback={<LoaderCircle className="mx-auto mt-10 size-6 animate-spin text-muted-foreground" />}
+          >
+            <Outlet />
+          </Suspense>
         </main>
       </SidebarInset>
     </SidebarProvider>

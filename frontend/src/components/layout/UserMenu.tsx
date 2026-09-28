@@ -1,4 +1,5 @@
 import { LogOut } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuth } from '@/app/hooks'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -49,7 +50,11 @@ export function UserMenu() {
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" disabled={isLoading} onClick={() => logout()}>
+        <DropdownMenuItem
+          variant="destructive"
+          disabled={isLoading}
+          onClick={() => logout().then(() => toast.success('You have been logged out.'))}
+        >
           <LogOut />
           Log out
         </DropdownMenuItem>

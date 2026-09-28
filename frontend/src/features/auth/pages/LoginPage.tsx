@@ -1,64 +1,93 @@
-import { useState, type FormEvent } from 'react'
+import type { FormEvent } from 'react'
 import { Link } from 'react-router'
-import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
+import { PasswordInput } from '@/components/PasswordInput'
+import { SubmitButton } from '@/components/SubmitButton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useLoginMutation } from '../authApi'
-import { parseApiError } from '../apiError'
+import { loginSchema } from '../schemas'
+import { useAuthForm } from '../useAuthForm'
 import { AuthCard, FieldError, FormError } from './AuthCard'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [login, { isLoading, error }] = useLoginMutation()
-  const { message, fields } = parseApiError(error)
+  const [login, { isLoading }] = useLoginMutation()
+  const { values, setField, errors, formError, validate, handleServerError, fieldProps } =
+    useAuthForm(loginSchema, { email: '', password: '', rememberMe: false })
 
   // On success the auth state becomes "authenticated", and GuestRoute
   // redirects to the right portal automatically.
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    void login({ email, password })
+    if (!validate()) return
+    try {
+      const { user } = await login(values).unwrap()
+      toast.success(`Welcome back, ${user.name.split(' ')[0]}!`)
+    } catch (err) {
+      handleServerError(err)
+    }
   }
 
   return (
     <AuthCard title="Welcome back" description="Log in to your AdaptiveLearn account">
-      <form onSubmit={handleSubmit} className="grid gap-4" noValidate>
-        <FormError message={fields.email || fields.password ? '' : message} />
+      <title>Log in · AdaptiveLearn</title>
+      {/* method="post" + name/autoComplete attributes let the browser's
+          password manager offer to save and later autofill the password. */}
+      <form onSubmit={handleSubmit} method="post" className="grid gap-4" noValidate>
+        <FormError message={formError} />
 
         <div className="grid gap-2">
           <Label htmlFor="email">Email</Label>
           <Input
-            id="email"
+            {...fieldProps('email')}
+            name="email"
             type="email"
-            autoComplete="email"
+            autoComplete="username"
+            autoFocus
             placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            aria-invalid={!!fields.email}
-            aria-describedby={fields.email ? 'email-error' : undefined}
-            required
+            value={values.email}
+            onChange={(e) => setField('email', e.target.value)}
           />
-          <FieldError id="email-error" message={fields.email} />
+          <FieldError id="email-error" message={errors.email} />
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Password</Label>
+            <Link
+              to="/forgot-password"
+              className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
+          <PasswordInput
+            {...fieldProps('password')}
+            name="password"
             autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            aria-invalid={!!fields.password}
-            aria-describedby={fields.password ? 'password-error' : undefined}
-            required
+            value={values.password}
+            onChange={(e) => setField('password', e.target.value)}
           />
-          <FieldError id="password-error" message={fields.password} />
+          <FieldError id="password-error" message={errors.password} />
         </div>
 
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? 'Logging in…' : 'Log in'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <input
+            id="rememberMe"
+            name="rememberMe"
+            type="checkbox"
+            className="size-4 rounded border-input accent-primary"
+            checked={values.rememberMe}
+            onChange={(e) => setField('rememberMe', e.target.checked)}
+          />
+          <Label htmlFor="rememberMe" className="font-normal">
+            Remember me for 30 days
+          </Label>
+        </div>
+
+        <SubmitButton loading={isLoading} loadingText="Logging in…">
+          Log in
+        </SubmitButton>
 
         <p className="text-center text-sm text-muted-foreground">
           Don&apos;t have an account?{' '}

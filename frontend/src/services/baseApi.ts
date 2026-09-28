@@ -5,12 +5,13 @@ import {
   type FetchArgs,
   type FetchBaseQueryError,
 } from '@reduxjs/toolkit/query/react'
+import { toast } from 'sonner'
 import { credentialsReceived, loggedOut } from '@/features/auth/authSlice'
 import type { AuthResponse } from '@/features/auth/types'
 
 // Minimal view of the store state, to avoid a circular import with store.ts.
 interface StateWithAuth {
-  auth: { accessToken: string | null }
+  auth: { accessToken: string | null; status: string }
 }
 
 const rawBaseQuery = fetchBaseQuery({
@@ -49,7 +50,14 @@ export function refreshSession(
 }
 
 // Requests where a 401 means "wrong credentials", not "access token expired".
-const NO_RETRY = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout']
+const NO_RETRY = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/refresh',
+  '/auth/logout',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+]
 
 // Wraps every API call: if the access token has expired (401), silently get
 // a new one with the refresh cookie and retry the original request once.
@@ -62,8 +70,11 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 
   const url = typeof args === 'string' ? args : args.url
   if (result.error?.status === 401 && !NO_RETRY.includes(url)) {
+    const wasLoggedIn = (api.getState() as StateWithAuth).auth.status === 'authenticated'
     if (await refreshSession(api, extraOptions)) {
       result = await rawBaseQuery(args, api, extraOptions)
+    } else if (wasLoggedIn) {
+      toast.error('Your session has expired. Please log in again.')
     }
   }
   return result

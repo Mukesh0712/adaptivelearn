@@ -1,6 +1,6 @@
 import { baseApi, refreshSession } from '@/services/baseApi'
 import { credentialsReceived, loggedOut } from './authSlice'
-import type { AuthResponse, LoginRequest, RegisterRequest, User } from './types'
+import type { AuthResponse, LoginRequest, MessageResponse, RegisterRequest, User } from './types'
 
 export const authApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -40,6 +40,12 @@ export const authApi = baseApi.injectEndpoints({
     me: build.query<{ user: User }, void>({
       query: () => '/auth/me',
     }),
+    forgotPassword: build.mutation<MessageResponse, { email: string }>({
+      query: (body) => ({ url: '/auth/forgot-password', method: 'POST', body }),
+    }),
+    resetPassword: build.mutation<MessageResponse, { token: string; password: string }>({
+      query: (body) => ({ url: '/auth/reset-password', method: 'POST', body }),
+    }),
   }),
 })
 
@@ -49,4 +55,6 @@ export const {
   useLogoutMutation,
   useRefreshMutation,
   useMeQuery,
+  useForgotPasswordMutation,
+  useResetPasswordMutation,
 } = authApi

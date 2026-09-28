@@ -18,11 +18,18 @@ export interface AuthResponse {
 export interface LoginRequest {
   email: string
   password: string
+  rememberMe: boolean
 }
 
-export interface RegisterRequest extends LoginRequest {
+export interface RegisterRequest {
   name: string
+  email: string
+  password: string
   role: Exclude<Role, 'admin'>
+}
+
+export interface MessageResponse {
+  message: string
 }
 
 // Error body sent by the backend's errorHandler.
