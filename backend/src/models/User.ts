@@ -3,9 +3,10 @@ import { Schema, model, type InferSchemaType, type HydratedDocument } from 'mong
 export const ROLES = ['student', 'instructor', 'parent', 'admin'] as const;
 export type Role = (typeof ROLES)[number];
 
-// Roles anyone can pick on the public sign-up form. Admins are created only
-// via the seed script, otherwise anyone could make themselves an admin.
-export const SELF_REGISTER_ROLES = ['student', 'instructor', 'parent'] as const;
+// Roles anyone can pick on the public sign-up form. Instructors are invited
+// by an Admin and admins are created with the seed script; allowing either
+// here would let anyone give themselves staff permissions.
+export const SELF_REGISTER_ROLES = ['student', 'parent'] as const;
 
 const userSchema = new Schema(
   {
