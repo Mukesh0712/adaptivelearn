@@ -33,7 +33,7 @@ export const registerSchema = z
     email,
     password: newPassword,
     confirmPassword: z.string().min(1, 'Please confirm your password'),
-    role: z.enum(SELF_REGISTER_ROLES),
+    role: z.enum(SELF_REGISTER_ROLES, { error: 'Please choose your role' }),
     acceptTerms: z.literal(true, { error: 'Please accept the Terms and Privacy Policy' }),
     website: z.string(),
   })

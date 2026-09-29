@@ -2,8 +2,10 @@
 export const ROLES = ['student', 'instructor', 'parent', 'admin'] as const
 export type Role = (typeof ROLES)[number]
 
-// Roles a user can pick on the public register form (admins are seeded).
-export const SELF_REGISTER_ROLES = ['student', 'instructor', 'parent'] as const
+// Roles a user can pick on the public register form. Must match the backend.
+// Instructors are invited by an Admin; admins are created with the seed script.
+export const SELF_REGISTER_ROLES = ['student', 'parent'] as const
+export type SelfRegisterRole = (typeof SELF_REGISTER_ROLES)[number]
 
 export const ROLE_LABEL: Record<Role, string> = {
   student: 'Student',

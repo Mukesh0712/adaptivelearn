@@ -6,19 +6,14 @@ import { PasswordInput } from '@/components/PasswordInput'
 import { SubmitButton } from '@/components/SubmitButton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ROLE_LABEL, SELF_REGISTER_ROLES } from '@/lib/roles'
+import { ROLE_LABEL, type SelfRegisterRole } from '@/lib/roles'
 import { useRegisterMutation } from '../authApi'
 import { registerSchema } from '../schemas'
-import type { RegisterRequest } from '../types'
+import { RoleCards } from '../RoleCards'
 import { useAuthForm } from '../useAuthForm'
 import { AuthCard, FieldError, FormError } from './AuthCard'
 import { PageMeta } from '@/components/PageMeta'
 
-type SelfRole = RegisterRequest['role']
-
-// value → label map, so the Select shows "Student" rather than "student".
-const roleItems = Object.fromEntries(SELF_REGISTER_ROLES.map((r) => [r, ROLE_LABEL[r]]))
 
 export default function RegisterPage() {
   const [register, { isLoading }] = useRegisterMutation()
@@ -29,7 +24,7 @@ export default function RegisterPage() {
       email: '',
       password: '',
       confirmPassword: '',
-      role: 'student' as SelfRole,
+      role: '' as SelfRegisterRole | '', // no default: the user must choose
       acceptTerms: false,
       website: '',
     })
@@ -43,6 +38,7 @@ export default function RegisterPage() {
     try {
       // confirmPassword is only checked in the browser; it isn't sent.
       const { name, email, password, role, acceptTerms, website } = values
+      if (!role) return // validate() already reported it
       const { message } = await register({ name, email, password, role, acceptTerms, website }).unwrap()
       toast.success(message)
       navigate('/login', { replace: true, state: { email } })
@@ -53,7 +49,7 @@ export default function RegisterPage() {
 
   return (
     <AuthCard title="Create an account" description="Choose your role to get the right portal">
-      <PageMeta title="Create an account" description="Create your free AdaptiveLearn account as a student, instructor or parent." />
+      <PageMeta title="Create an account" description="Create your free AdaptiveLearn account as a student or parent." />
       <form onSubmit={handleSubmit} method="post" className="grid gap-4" noValidate>
         <FormError message={formError} />
 
@@ -115,26 +111,7 @@ export default function RegisterPage() {
           <FieldError id="confirmPassword-error" message={errors.confirmPassword} />
         </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="role">I am a</Label>
-          <Select
-            items={roleItems}
-            value={values.role}
-            onValueChange={(value) => value && setField('role', value as SelfRole)}
-          >
-            <SelectTrigger id="role" className="w-full" aria-invalid={!!errors.role}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SELF_REGISTER_ROLES.map((r) => (
-                <SelectItem key={r} value={r}>
-                  {ROLE_LABEL[r]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <FieldError id="role-error" message={errors.role} />
-        </div>
+        <RoleCards value={values.role} onChange={(role) => setField('role', role)} error={errors.role} />
 
         <div className="grid gap-2">
           <div className="flex items-start gap-2">
@@ -162,8 +139,9 @@ export default function RegisterPage() {
 
         <Honeypot value={values.website} onChange={(v) => setField('website', v)} />
 
+        {/* The button names the chosen role, so it's the last thing read before submitting. */}
         <SubmitButton loading={isLoading} loadingText="Creating account…">
-          Create account
+          {values.role ? `Create ${ROLE_LABEL[values.role]} account` : 'Create account'}
         </SubmitButton>
 
         <p className="text-center text-sm text-muted-foreground">

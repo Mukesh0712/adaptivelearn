@@ -12,7 +12,7 @@ export const registerSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
   email,
   password: newPassword,
-  role: z.enum(SELF_REGISTER_ROLES, { error: 'Role must be student, instructor or parent' }),
+  role: z.enum(SELF_REGISTER_ROLES, { error: 'Role must be student or parent' }),
   acceptTerms: z.literal(true, { error: 'You must accept the Terms and Privacy Policy' }),
 });
 
