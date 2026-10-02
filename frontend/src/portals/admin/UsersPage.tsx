@@ -17,6 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useListUsersQuery } from '@/features/admin/adminApi'
+import { InviteDialog } from '@/features/admin/InviteDialog'
 import { RoleBadge, StatusBadge } from '@/features/admin/UserBadges'
 import { parseApiError } from '@/features/auth/apiError'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
@@ -98,9 +99,12 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       <PageMeta title="Users" />
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
-        <p className="text-muted-foreground">Every account on the platform. Search by name or email.</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
+          <p className="text-muted-foreground">Every account on the platform. Search by name or email.</p>
+        </div>
+        <InviteDialog />
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row">

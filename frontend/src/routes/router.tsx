@@ -3,6 +3,7 @@ import { createBrowserRouter, Outlet } from 'react-router'
 import { FullPageLoader } from '@/components/FullPageLoader'
 import { GuestRoute, HomeRedirect, ProtectedRoute, RoleRoute } from './guards'
 import {
+  AcceptInvitePage,
   AdminDashboard,
   AdminUsersPage,
   AppLayout,
@@ -41,6 +42,7 @@ export const router = createBrowserRouter([
       // Not a guest-only page: the emailed link must work even if the user
       // happens to be logged in on this browser.
       { path: '/reset-password', element: <ResetPasswordPage /> },
+      { path: '/accept-invite', element: <AcceptInvitePage /> },
       // Public legal pages, reachable whether or not the visitor is logged in.
       { path: '/privacy', element: <PrivacyPage /> },
       { path: '/terms', element: <TermsPage /> },

@@ -33,6 +33,12 @@ export interface RegisterRequest {
   website: string // honeypot, always '' for real users
 }
 
+export interface InviteDetails {
+  name: string
+  email: string
+  role: Role
+}
+
 export interface MessageResponse {
   message: string
 }

@@ -3,7 +3,7 @@ import { env, isProduction } from '../config/env.js';
 import { UserModel, type UserDocument, type UserStatus } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
 import {
-  generateResetToken,
+  generateLinkToken,
   hashToken,
   signAccessToken,
   signRefreshToken,
@@ -12,7 +12,11 @@ import {
 import { hashPassword, verifyPassword } from '../utils/password.js';
 import { REFRESH_COOKIE, clearRefreshCookie, setRefreshCookie } from '../utils/cookies.js';
 import { sendPasswordResetEmail } from '../utils/mailer.js';
+import { audit } from '../utils/audit.js';
+import { parseOrThrow } from '../middleware/validate.js';
+import { inviteTokenQuerySchema } from '../validators/auth.schema.js';
 import type {
+  AcceptInviteInput,
   ForgotPasswordInput,
   LoginInput,
   RegisterInput,
@@ -174,7 +178,7 @@ export async function forgotPassword(req: Request, res: Response) {
   // sets theirs by accepting the invite).
   const user = await UserModel.findOne({ email, status: CAN_SIGN_IN });
   if (user) {
-    const token = generateResetToken();
+    const token = generateLinkToken();
     await UserModel.updateOne(
       { _id: user._id },
       {
@@ -222,4 +226,46 @@ export async function resetPassword(req: Request, res: Response) {
 
   clearRefreshCookie(res);
   res.json({ message: 'Your password has been updated. Please log in with your new password.' });
+}
+
+const INVALID_INVITE =
+  'This invite link is invalid or has expired. Please ask your administrator to send a new one.';
+
+// Finds the invited user an invite link belongs to (if still valid).
+const pendingInvite = (token: string) => ({
+  inviteTokenHash: hashToken(token),
+  inviteExpiresAt: { $gt: new Date() },
+  status: 'invited' as const,
+});
+
+// GET /api/auth/invite?token= : lets the accept page greet the person by
+// name and show which email and role they were invited with.
+export async function verifyInvite(req: Request, res: Response) {
+  const { token } = parseOrThrow(inviteTokenQuerySchema, req.query);
+  const user = await UserModel.findOne(pendingInvite(token));
+  if (!user) throw ApiError.badRequest(INVALID_INVITE);
+  res.json({ name: user.name, email: user.email, role: user.role });
+}
+
+// Sets the password and activates the account in one atomic update. The
+// link is single-use: the token hash is cleared at the same time. The user
+// then logs in normally (same as after registering).
+export async function acceptInvite(req: Request, res: Response) {
+  const { token, password } = req.body as AcceptInviteInput;
+
+  const user = await UserModel.findOneAndUpdate(
+    pendingInvite(token),
+    {
+      password: await hashPassword(password),
+      status: 'active',
+      inviteTokenHash: null,
+      inviteExpiresAt: null,
+      termsAcceptedAt: new Date(),
+    },
+    { returnDocument: 'after' },
+  );
+  if (!user) throw ApiError.badRequest(INVALID_INVITE);
+
+  await audit(user._id, 'invite.accepted', user._id, { role: user.role });
+  res.json({ email: user.email, message: 'Your account is active. Please log in.' });
 }

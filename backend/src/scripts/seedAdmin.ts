@@ -13,7 +13,7 @@ import { hashPassword } from '../utils/password.js';
 
 const adminSchema = z.object({
   ADMIN_NAME: z.string().trim().min(2).default('Administrator'),
-  ADMIN_EMAIL: z.email('ADMIN_EMAIL must be a valid email').trim().toLowerCase(),
+  ADMIN_EMAIL: z.string().trim().toLowerCase().pipe(z.email('ADMIN_EMAIL must be a valid email')),
   ADMIN_PASSWORD: z
     .string({ error: 'ADMIN_PASSWORD is required' })
     .min(8, 'ADMIN_PASSWORD must be at least 8 characters')

@@ -2,7 +2,7 @@ import type { Plugin } from 'vite'
 
 // Public pages that search engines may index. Portals are private.
 const PUBLIC_PATHS = ['/login', '/register', '/forgot-password', '/privacy', '/terms']
-const PRIVATE_PATHS = ['/student', '/instructor', '/parent', '/admin', '/reset-password']
+const PRIVATE_PATHS = ['/student', '/instructor', '/parent', '/admin', '/reset-password', '/accept-invite']
 
 // Build-time SEO helper:
 //  - replaces __SITE_URL__ in index.html with the real site address

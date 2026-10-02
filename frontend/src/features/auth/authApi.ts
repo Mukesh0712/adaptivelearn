@@ -2,6 +2,7 @@ import { baseApi, refreshSession } from '@/services/baseApi'
 import { credentialsReceived, loggedOut } from './authSlice'
 import type {
   AuthResponse,
+  InviteDetails,
   LoginRequest,
   MessageResponse,
   RegisterRequest,
@@ -50,6 +51,16 @@ export const authApi = baseApi.injectEndpoints({
     resetPassword: build.mutation<MessageResponse, { token: string; password: string }>({
       query: (body) => ({ url: '/auth/reset-password', method: 'POST', body }),
     }),
+    // Invite links (sent by an Admin): check the link, then activate the account.
+    verifyInvite: build.query<InviteDetails, string>({
+      query: (token) => ({ url: '/auth/invite', params: { token } }),
+    }),
+    acceptInvite: build.mutation<
+      MessageResponse & { email: string },
+      { token: string; password: string; acceptTerms: boolean }
+    >({
+      query: (body) => ({ url: '/auth/accept-invite', method: 'POST', body }),
+    }),
   }),
 })
 
@@ -61,4 +72,6 @@ export const {
   useMeQuery,
   useForgotPasswordMutation,
   useResetPasswordMutation,
+  useVerifyInviteQuery,
+  useAcceptInviteMutation,
 } = authApi

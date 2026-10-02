@@ -36,3 +36,6 @@ export const passwordResetLimiter = limiter(
   5,
   'Too many password reset requests. Please try again in 15 minutes.',
 );
+
+// Opening and accepting invite links: stops guessing invite tokens.
+export const inviteLimiter = limiter(15, 20, 'Too many attempts. Please try again in 15 minutes.');

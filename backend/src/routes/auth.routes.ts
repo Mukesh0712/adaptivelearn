@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  acceptInvite,
   forgotPassword,
   login,
   logout,
@@ -7,12 +8,19 @@ import {
   refresh,
   register,
   resetPassword,
+  verifyInvite,
 } from '../controllers/auth.controller.js';
 import { authenticate } from '../middleware/authenticate.js';
 import { honeypot } from '../middleware/honeypot.js';
-import { loginLimiter, passwordResetLimiter, registerLimiter } from '../middleware/rateLimiters.js';
+import {
+  inviteLimiter,
+  loginLimiter,
+  passwordResetLimiter,
+  registerLimiter,
+} from '../middleware/rateLimiters.js';
 import { validate } from '../middleware/validate.js';
 import {
+  acceptInviteSchema,
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
@@ -40,3 +48,6 @@ authRouter.post(
   forgotPassword,
 );
 authRouter.post('/reset-password', passwordResetLimiter, validate(resetPasswordSchema), resetPassword);
+// Public: opened from an Admin's invite email.
+authRouter.get('/invite', inviteLimiter, verifyInvite);
+authRouter.post('/accept-invite', inviteLimiter, validate(acceptInviteSchema), acceptInvite);

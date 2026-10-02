@@ -8,6 +8,9 @@ export type Role = (typeof ROLES)[number];
 // here would let anyone give themselves staff permissions.
 export const SELF_REGISTER_ROLES = ['student', 'parent'] as const;
 
+// Roles an Admin can invite by email. Admins are never invited (seed script only).
+export const INVITE_ROLES = ['instructor'] as const;
+
 // active      → can log in.
 // invited     → created by an Admin invite; has no password until the invite
 //               is accepted, so cannot log in yet.
