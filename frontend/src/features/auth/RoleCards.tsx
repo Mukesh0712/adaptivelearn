@@ -66,7 +66,7 @@ export function RoleCards({
 
       <p id="role-note" className="flex items-start gap-1.5 text-xs text-muted-foreground">
         <Info className="mt-px size-3.5 shrink-0" aria-hidden="true" />
-        <span>Can&apos;t be changed later · Instructors are invited by an admin</span>
+        <span>Can&apos;t be changed later · An admin approves new accounts</span>
       </p>
     </fieldset>
   )

@@ -2,11 +2,13 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
 import {
+  approveUser,
   changeRole,
   changeStatus,
   createInvite,
   listAuditLogs,
   listUsers,
+  rejectUser,
   resendInvite,
 } from '../controllers/admin.controller.js';
 import { validate } from '../middleware/validate.js';
@@ -23,6 +25,8 @@ adminRouter.get('/users', listUsers);
 adminRouter.post('/invites', validate(inviteSchema), createInvite);
 adminRouter.get('/audit-logs', listAuditLogs);
 adminRouter.post('/users/:id/resend-invite', resendInvite);
+adminRouter.post('/users/:id/approve', approveUser);
+adminRouter.post('/users/:id/reject', rejectUser);
 adminRouter.patch('/users/:id/role', validate(changeRoleSchema), changeRole);
 adminRouter.patch('/users/:id/status', validate(changeStatusSchema), changeStatus);
 adminRouter.get('/courses', listAllCourses);

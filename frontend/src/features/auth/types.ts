@@ -44,7 +44,7 @@ export interface MessageResponse {
 }
 
 export interface RegisterResponse {
-  user?: User
+  pending?: boolean // new accounts wait for an admin's approval
   message: string
 }
 

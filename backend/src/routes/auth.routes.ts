@@ -32,7 +32,11 @@ export const authRouter = Router();
 authRouter.post(
   '/register',
   registerLimiter,
-  honeypot(201, { message: 'Account created. Please log in.' }),
+  // Bots get the same reply as a real sign-up, so they can't tell they were caught.
+  honeypot(201, {
+    pending: true,
+    message: "Thanks! Your account was created and is waiting for an administrator's approval. We'll email you as soon as it's approved.",
+  }),
   validate(registerSchema),
   register,
 );

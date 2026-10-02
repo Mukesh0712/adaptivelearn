@@ -17,11 +17,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { FieldError, FormError } from '@/features/auth/pages/AuthCard'
 import { useAuthForm } from '@/features/auth/useAuthForm'
+import { ROLE_LABEL } from '@/lib/roles'
+import { cn } from '@/lib/utils'
 import { useInviteUserMutation } from './adminApi'
 import { inviteSchema } from './schemas'
-import type { InviteResponse } from './types'
+import { ASSIGNABLE_ROLES, type AssignableRole, type InviteResponse } from './types'
 
-// "Invite instructor" button + dialog on the Admin Users page.
+// "Invite user" button + dialog on the Admin Users page.
 // Step 1: name + email. Step 2: result, with the invite link to copy.
 export function InviteDialog() {
   const [open, setOpen] = useState(false)
@@ -38,7 +40,7 @@ export function InviteDialog() {
     >
       <DialogTrigger render={<Button />}>
         <UserPlus aria-hidden="true" />
-        Invite instructor
+        Invite user
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <InviteFlow key={formKey} onInviteAnother={() => setFormKey((k) => k + 1)} />
@@ -52,14 +54,16 @@ function InviteFlow({ onInviteAnother }: { onInviteAnother: () => void }) {
   const [result, setResult] = useState<InviteResponse | null>(null)
   const { values, setField, errors, formError, validate, handleServerError, fieldProps } = useAuthForm(
     inviteSchema,
-    { name: '', email: '' },
+    // No default role: the admin must choose, so nobody is invited with the wrong one.
+    { name: '', email: '', role: '' as AssignableRole | '' },
   )
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!validate()) return
     try {
-      setResult(await invite({ name: values.name.trim(), email: values.email.trim(), role: 'instructor' }).unwrap())
+      if (!values.role) return // validate() already reported it
+      setResult(await invite({ name: values.name.trim(), email: values.email.trim(), role: values.role }).unwrap())
     } catch (err) {
       handleServerError(err)
     }
@@ -70,10 +74,10 @@ function InviteFlow({ onInviteAnother }: { onInviteAnother: () => void }) {
   return (
     <form onSubmit={handleSubmit} method="post" className="grid gap-4" noValidate>
       <DialogHeader>
-        <DialogTitle>Invite an instructor</DialogTitle>
+        <DialogTitle>Invite a user</DialogTitle>
         <DialogDescription>
-          They'll get an email with a link to set their password. Instructor accounts can only be created this
-          way.
+          They'll get an email with a link to set their password. Invited people don't need approval. Instructor
+          accounts can only be created this way.
         </DialogDescription>
       </DialogHeader>
 
@@ -105,10 +109,39 @@ function InviteFlow({ onInviteAnother }: { onInviteAnother: () => void }) {
         <FieldError id="email-error" message={errors.email} />
       </div>
 
+      <fieldset className="grid gap-2" aria-describedby={errors.role ? 'role-error' : undefined}>
+        <legend className="mb-2 text-sm font-medium">Role</legend>
+        <div className="grid grid-cols-3 gap-2">
+          {ASSIGNABLE_ROLES.map((r, i) => (
+            <label
+              key={r}
+              className={cn(
+                'flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border px-2 text-sm transition-colors hover:bg-muted',
+                'has-[:checked]:border-primary has-[:checked]:bg-muted has-[:checked]:font-medium has-[:checked]:ring-1 has-[:checked]:ring-primary',
+                'has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50',
+                errors.role && 'border-destructive',
+              )}
+            >
+              <input
+                id={i === 0 ? 'role' : undefined}
+                type="radio"
+                name="role"
+                value={r}
+                checked={values.role === r}
+                onChange={() => setField('role', r)}
+                className="size-4 shrink-0 accent-primary"
+              />
+              {ROLE_LABEL[r]}
+            </label>
+          ))}
+        </div>
+        <FieldError id="role-error" message={errors.role} />
+      </fieldset>
+
       <DialogFooter>
         <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
         <SubmitButton loading={isLoading} loadingText="Sending invite…" className="sm:w-auto">
-          Send invite
+          {values.role ? `Invite ${ROLE_LABEL[values.role]}` : 'Send invite'}
         </SubmitButton>
       </DialogFooter>
     </form>

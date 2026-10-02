@@ -1,7 +1,8 @@
-import type { FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router'
+import { MailCheck } from 'lucide-react'
 import { Honeypot } from '@/components/Honeypot'
-import { toast } from 'sonner'
+import { buttonVariants } from '@/components/ui/button'
 import { PasswordInput } from '@/components/PasswordInput'
 import { SubmitButton } from '@/components/SubmitButton'
 import { Input } from '@/components/ui/input'
@@ -17,7 +18,9 @@ import { PageMeta } from '@/components/PageMeta'
 
 export default function RegisterPage() {
   const [register, { isLoading }] = useRegisterMutation()
-  const navigate = useNavigate()
+  // After signing up, the account waits for an admin's approval, so instead
+  // of the login page (which would refuse it) we show what happens next.
+  const [doneMessage, setDoneMessage] = useState('')
   const { values, setField, errors, formError, validate, handleServerError, fieldProps } =
     useAuthForm(registerSchema, {
       name: '',
@@ -30,8 +33,7 @@ export default function RegisterPage() {
     })
 
   // Admin is intentionally not offered: the backend rejects it anyway, and
-  // admins are created with the seed script. On success the user is sent to
-  // the login page with their email already filled in.
+  // admins are created with the seed script.
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!validate()) return
@@ -40,11 +42,25 @@ export default function RegisterPage() {
       const { name, email, password, role, acceptTerms, website } = values
       if (!role) return // validate() already reported it
       const { message } = await register({ name, email, password, role, acceptTerms, website }).unwrap()
-      toast.success(message)
-      navigate('/login', { replace: true, state: { email } })
+      setDoneMessage(message)
     } catch (err) {
       handleServerError(err)
     }
+  }
+
+  if (doneMessage) {
+    return (
+      <AuthCard title="Almost there" description="Your account is waiting for approval">
+        <PageMeta title="Waiting for approval" />
+        <div role="status" className="grid justify-items-center gap-4 text-center">
+          <MailCheck className="size-10 text-muted-foreground" aria-hidden="true" />
+          <p className="text-sm">{doneMessage}</p>
+          <Link to="/login" className={buttonVariants({ variant: 'outline' })}>
+            Back to log in
+          </Link>
+        </div>
+      </AuthCard>
+    )
   }
 
   return (

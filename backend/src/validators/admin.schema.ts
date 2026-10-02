@@ -21,7 +21,7 @@ export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 export const inviteSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
   email,
-  role: z.enum(INVITE_ROLES, { error: 'Only instructors can be invited' }).default('instructor'),
+  role: z.enum(INVITE_ROLES, { error: 'Role must be student, parent or instructor' }),
 });
 export type InviteInput = z.infer<typeof inviteSchema>;
 

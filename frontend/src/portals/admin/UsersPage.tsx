@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/table'
 import { useListUsersQuery } from '@/features/admin/adminApi'
 import { InviteDialog } from '@/features/admin/InviteDialog'
+import { PendingBanner } from '@/features/admin/PendingBanner'
 import { UserActions } from '@/features/admin/UserActions'
 import { useAuth } from '@/app/hooks'
 import { RoleBadge, StatusBadge } from '@/features/admin/UserBadges'
@@ -111,6 +112,9 @@ export default function UsersPage() {
         </div>
         <InviteDialog />
       </div>
+
+      {/* Hidden while already looking at the pending list. */}
+      <PendingBanner hidden={status === 'pending'} />
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">

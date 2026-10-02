@@ -9,19 +9,21 @@ export type Role = (typeof ROLES)[number];
 export const SELF_REGISTER_ROLES = ['student', 'parent'] as const;
 
 // Roles an Admin can invite by email. Admins are never invited (seed script only).
-export const INVITE_ROLES = ['instructor'] as const;
+export const INVITE_ROLES = ['student', 'parent', 'instructor'] as const;
 
 // Roles an Admin can switch a user to. Never admin: admin accounts only come
 // from the seed script, so an Admin can't promote anyone (or be demoted).
 export const ASSIGNABLE_ROLES = ['student', 'parent', 'instructor'] as const;
 
 // active      → can log in.
+// pending     → signed up on the register page; waits for an Admin to approve
+//               it before it can log in.
 // invited     → created by an Admin invite; has no password until the invite
 //               is accepted, so cannot log in yet.
 // deactivated → blocked by an Admin; every request is refused immediately.
 // Accounts created before this field existed have no status saved; they are
 // treated as active everywhere (the schema default fills it in when loaded).
-export const USER_STATUSES = ['active', 'invited', 'deactivated'] as const;
+export const USER_STATUSES = ['active', 'pending', 'invited', 'deactivated'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 
 const userSchema = new Schema(

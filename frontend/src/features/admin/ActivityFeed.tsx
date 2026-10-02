@@ -3,6 +3,8 @@ import {
   ArchiveRestore,
   Ban,
   BookPlus,
+  CircleCheck,
+  CircleX,
   KeyRound,
   MailCheck,
   MailPlus,
@@ -26,6 +28,8 @@ const ICON: Record<AuditAction, LucideIcon> = {
   'user.role_changed': UserCog,
   'user.deactivated': Ban,
   'user.reactivated': RotateCcw,
+  'user.approved': CircleCheck,
+  'user.rejected': CircleX,
   'course.created': BookPlus,
   'course.archived': Archive,
   'course.restored': ArchiveRestore,
@@ -53,6 +57,10 @@ function describe(log: AuditLog): string {
       return d.wasInvited ? `${actor} cancelled the invite for ${target}` : `${actor} deactivated ${target}`
     case 'user.reactivated':
       return `${actor} reactivated ${target}`
+    case 'user.approved':
+      return `${actor} approved ${target} as ${label(d.role)}`
+    case 'user.rejected':
+      return `${actor} rejected the sign-up from ${d.name ?? 'someone'} (${label(d.role)})`
     case 'course.created':
       return `${actor} created the course ${d.title ?? ''}`
     case 'course.archived':

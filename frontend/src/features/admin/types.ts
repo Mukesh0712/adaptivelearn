@@ -41,7 +41,7 @@ export interface ListCoursesParams {
 export interface InviteRequest {
   name: string
   email: string
-  role: 'instructor'
+  role: AssignableRole
 }
 
 // Roles an Admin can switch a user to. Must match ASSIGNABLE_ROLES in the backend.
@@ -69,6 +69,8 @@ export type AuditAction =
   | 'user.role_changed'
   | 'user.deactivated'
   | 'user.reactivated'
+  | 'user.approved'
+  | 'user.rejected'
   | 'course.created'
   | 'course.archived'
   | 'course.restored'
