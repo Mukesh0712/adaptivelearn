@@ -18,6 +18,15 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // The shadcn CLI sometimes writes `import { cn } from "cn"`, an
+      // unrelated npm package without Tailwind class merging. Our helper
+      // lives in @/lib/utils.
+      'no-restricted-imports': [
+        'error',
+        { paths: [{ name: 'cn', message: 'Import cn from "@/lib/utils" instead.' }] },
+      ],
+    },
   },
   {
     // shadcn/ui components export style helpers (e.g. buttonVariants) next to

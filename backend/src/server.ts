@@ -1,7 +1,7 @@
 import { app } from './app.js';
 import { env } from './config/env.js';
 import { connectDB, disconnectDB } from './config/db.js';
-import { isEmailConfigured, verifyEmailConfig } from './utils/mailer.js';
+import { verifyEmailConfig } from './utils/mailer.js';
 
 async function start(): Promise<void> {
   try {
@@ -14,12 +14,7 @@ async function start(): Promise<void> {
 
   const server = app.listen(env.PORT, () => {
     console.log(`AdaptiveLearn API listening on http://localhost:${env.PORT} (${env.NODE_ENV})`);
-    console.log(
-      isEmailConfigured
-        ? `Email: sending via ${env.SMTP_HOST} as ${env.SMTP_USER}`
-        : 'Email: SMTP not configured, password reset links will be printed here',
-    );
-    void verifyEmailConfig();
+    void verifyEmailConfig(); // logs which email provider is used and whether it works
   });
 
   const shutdown = (signal: string) => {

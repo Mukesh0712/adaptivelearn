@@ -1,11 +1,30 @@
 import nodemailer from 'nodemailer';
 import { env, isProduction } from '../config/env.js';
 
-// Real email only when SMTP credentials are configured. For Gmail, SMTP_PASS
-// must be an "App Password" (Google Account → Security → App passwords),
-// not your normal Gmail password.
-const transporter =
-  env.SMTP_USER && env.SMTP_PASS
+// Sends email through one of two providers, chosen from the environment:
+//
+//  1. Brevo HTTPS API (BREVO_API_KEY). Used in production on Render, whose
+//     free plan blocks outgoing SMTP ports; an HTTPS API call isn't blocked.
+//  2. SMTP (SMTP_USER + SMTP_PASS), e.g. Gmail with an App Password. Handy for
+//     local development.
+//
+// With neither, development prints the email to the console so flows can
+// still be tested; production logs an error.
+
+type Provider = 'brevo' | 'smtp' | 'none';
+
+const BREVO_API = 'https://api.brevo.com/v3';
+
+export const emailProvider: Provider = env.BREVO_API_KEY
+  ? 'brevo'
+  : env.SMTP_USER && env.SMTP_PASS
+    ? 'smtp'
+    : 'none';
+
+const fromEmail = env.MAIL_FROM_EMAIL ?? env.SMTP_USER;
+
+const smtp =
+  emailProvider === 'smtp'
     ? nodemailer.createTransport({
         host: env.SMTP_HOST,
         port: env.SMTP_PORT,
@@ -14,42 +33,87 @@ const transporter =
       })
     : null;
 
-export const isEmailConfigured = transporter !== null;
+export interface Email {
+  to: string;
+  toName?: string;
+  subject: string;
+  text: string;
+  html: string;
+}
 
-// Called once at startup: logs in to the SMTP server so a wrong App Password
-// or blocked port shows up immediately, not when someone forgets a password.
+// Sends one email and returns the provider's message id. Throws on failure,
+// so callers decide what to do (log it, or show a fallback to the user).
+export async function sendEmail(email: Email): Promise<string> {
+  if (emailProvider === 'brevo') {
+    if (!fromEmail) throw new Error('MAIL_FROM_EMAIL is required when using Brevo');
+    const res = await fetch(`${BREVO_API}/smtp/email`, {
+      method: 'POST',
+      headers: { 'api-key': env.BREVO_API_KEY!, 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({
+        sender: { email: fromEmail, name: env.MAIL_FROM_NAME },
+        to: [{ email: email.to, ...(email.toName ? { name: email.toName } : {}) }],
+        subject: email.subject,
+        textContent: email.text,
+        htmlContent: email.html,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    const body = (await res.json().catch(() => ({}))) as { messageId?: string; message?: string };
+    if (!res.ok) throw new Error(`Brevo ${res.status}: ${body.message ?? res.statusText}`);
+    return body.messageId ?? 'unknown';
+  }
+
+  if (emailProvider === 'smtp') {
+    const info = await smtp!.sendMail({
+      from: `${env.MAIL_FROM_NAME} <${fromEmail}>`,
+      to: email.toName ? `${email.toName} <${email.to}>` : email.to,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+    });
+    return info.messageId;
+  }
+
+  if (isProduction) throw new Error('No email provider is configured');
+  console.log(`\n[dev email] To: ${email.to}\nSubject: ${email.subject}\n\n${email.text}\n`);
+  return 'dev-console';
+}
+
+// Called once at startup so a wrong key/password or a blocked port shows up
+// in the logs immediately, not when someone first needs an email.
 export async function verifyEmailConfig(): Promise<void> {
-  if (!transporter) return;
   try {
-    await transporter.verify();
-    console.log(`Email: SMTP login OK (${env.SMTP_USER} via ${env.SMTP_HOST}:${env.SMTP_PORT})`);
+    if (emailProvider === 'brevo') {
+      if (!fromEmail) throw new Error('MAIL_FROM_EMAIL is not set (must be a verified Brevo sender)');
+      const res = await fetch(`${BREVO_API}/account`, {
+        headers: { 'api-key': env.BREVO_API_KEY!, accept: 'application/json' },
+        signal: AbortSignal.timeout(10_000),
+      });
+      const body = (await res.json().catch(() => ({}))) as { email?: string; message?: string };
+      if (!res.ok) throw new Error(`Brevo ${res.status}: ${body.message ?? res.statusText}`);
+      console.log(`Email: Brevo API OK (account ${body.email}), sending as ${fromEmail}`);
+    } else if (emailProvider === 'smtp') {
+      await smtp!.verify();
+      console.log(`Email: SMTP login OK (${env.SMTP_USER} via ${env.SMTP_HOST}:${env.SMTP_PORT})`);
+    } else {
+      console.log(
+        isProduction
+          ? 'Email: NOT configured; set BREVO_API_KEY and MAIL_FROM_EMAIL'
+          : 'Email: not configured; emails will be printed here',
+      );
+    }
   } catch (err) {
-    console.error(
-      `Email: SMTP login FAILED for ${env.SMTP_USER}: ${err instanceof Error ? err.message : err}\n` +
-        '  Check SMTP_USER/SMTP_PASS in .env (SMTP_PASS must be a 16-character Gmail App Password).',
-    );
+    console.error(`Email: ${emailProvider.toUpperCase()} check FAILED: ${err instanceof Error ? err.message : err}`);
   }
 }
 
-const escapeHtml = (s: string) =>
-  s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export async function sendPasswordResetEmail(to: string, name: string, link: string) {
   const minutes = env.PASSWORD_RESET_TTL_MINUTES;
-
-  if (!transporter) {
-    if (isProduction) {
-      console.error('Password reset requested but SMTP is not configured; no email sent.');
-    } else {
-      // Development fallback: print the link so the flow can still be tested.
-      console.log(`\n[dev email] Password reset link for ${to} (valid ${minutes} min):\n${link}\n`);
-    }
-    return;
-  }
-
-  const info = await transporter.sendMail({
-    from: env.MAIL_FROM ?? `AdaptiveLearn <${env.SMTP_USER}>`,
+  const id = await sendEmail({
     to,
+    toName: name,
     subject: 'Reset your AdaptiveLearn password',
     text:
       `Hi ${name},\n\nWe received a request to reset your AdaptiveLearn password.\n` +
@@ -61,5 +125,5 @@ export async function sendPasswordResetEmail(to: string, name: string, link: str
       `<p><a href="${link}">Choose a new password</a> (valid for ${minutes} minutes)</p>` +
       `<p>If you didn't request this, you can ignore this email; your password won't change.</p>`,
   });
-  console.log(`Email: password reset link sent to ${to} (message id ${info.messageId})`);
+  console.log(`Email: password reset link sent to ${to} (message id ${id})`);
 }
