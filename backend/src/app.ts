@@ -41,6 +41,14 @@ app.use(requestLogger);
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser()); // fills req.cookies (needed to read the refresh token)
 
+// API responses contain personal data (user lists, profiles). no-store tells
+// the browser not to keep them, so on a shared computer they can't be
+// brought back from the cache (e.g. with the back button) after logout.
+app.use('/api', (_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
