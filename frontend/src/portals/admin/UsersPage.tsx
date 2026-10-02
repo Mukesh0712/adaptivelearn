@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { ChevronLeft, ChevronRight, Search, UserX } from 'lucide-react'
+import { Search, UserX } from 'lucide-react'
 import { PageMeta } from '@/components/PageMeta'
+import { Pagination } from '@/components/Pagination'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -99,9 +100,6 @@ export default function UsersPage() {
     setSearch('')
     updateParams({ q: undefined, role: undefined, status: undefined })
   }
-
-  const from = data && data.total > 0 ? (data.page - 1) * data.pageSize + 1 : 0
-  const to = data ? Math.min(data.page * data.pageSize, data.total) : 0
 
   return (
     <div className="space-y-6">
@@ -250,35 +248,14 @@ export default function UsersPage() {
         </CardContent>
       </Card>
 
-      {data && data.total > 0 && (
-        <nav aria-label="Pagination" className="flex items-center justify-between gap-2 text-sm">
-          <p className="text-muted-foreground" aria-live="polite">
-            Showing {from}–{to} of {data.total}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => updateParams({ page: String(page - 1) })}
-            >
-              <ChevronLeft aria-hidden="true" />
-              Previous
-            </Button>
-            <span className="hidden text-muted-foreground sm:inline">
-              Page {data.page} of {data.totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= data.totalPages}
-              onClick={() => updateParams({ page: String(page + 1) })}
-            >
-              Next
-              <ChevronRight aria-hidden="true" />
-            </Button>
-          </div>
-        </nav>
+      {data && (
+        <Pagination
+          page={data.page}
+          pageSize={data.pageSize}
+          total={data.total}
+          totalPages={data.totalPages}
+          onPageChange={(next) => updateParams({ page: String(next) })}
+        />
       )}
     </div>
   )

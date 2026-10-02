@@ -24,9 +24,10 @@ export const inviteSchema = z.object({
 });
 export type InviteInput = z.infer<typeof inviteSchema>;
 
-// GET /api/admin/audit-logs?limit=
+// GET /api/admin/audit-logs?page=&pageSize=
 export const auditLogQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(50).default(10),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(20),
 });
 
 // /api/admin/users/:id : a MongoDB ObjectId (24 hex characters). Checked up

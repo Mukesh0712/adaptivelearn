@@ -6,6 +6,7 @@ import type {
   InviteResponse,
   ListUsersParams,
   ListUsersResponse,
+  Paginated,
   UserActionResponse,
 } from './types'
 
@@ -33,7 +34,7 @@ export const adminApi = baseApi.injectEndpoints({
       query: ({ id, status }) => ({ url: `/admin/users/${id}/status`, method: 'PATCH', body: { status } }),
       invalidatesTags: ['Users', 'AuditLogs'],
     }),
-    listAuditLogs: build.query<{ logs: AuditLog[] }, { limit: number }>({
+    listAuditLogs: build.query<Paginated<{ logs: AuditLog[] }>, { page: number; pageSize: number }>({
       query: (params) => ({ url: '/admin/audit-logs', params }),
       providesTags: ['AuditLogs'],
     }),

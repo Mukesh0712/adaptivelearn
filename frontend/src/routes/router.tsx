@@ -5,6 +5,7 @@ import { RouteError } from '@/components/RouteError'
 import { GuestRoute, HomeRedirect, ProtectedRoute, RoleRoute } from './guards'
 import {
   AcceptInvitePage,
+  AdminActivityPage,
   AdminDashboard,
   AdminUsersPage,
   AppLayout,
@@ -80,6 +81,7 @@ export const router = createBrowserRouter([
                 children: [
                   { index: true, element: <AdminDashboard /> },
                   { path: 'users', element: <AdminUsersPage /> },
+                  { path: 'activity', element: <AdminActivityPage /> },
                 ],
               },
             ],

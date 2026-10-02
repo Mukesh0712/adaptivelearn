@@ -9,13 +9,15 @@ export interface ListUsersParams {
   pageSize: number
 }
 
-export interface ListUsersResponse {
-  users: User[]
+// A list response from the API plus where it sits in the full list.
+export type Paginated<T> = T & {
   total: number
   page: number
   pageSize: number
   totalPages: number
 }
+
+export type ListUsersResponse = Paginated<{ users: User[] }>
 
 export interface InviteRequest {
   name: string

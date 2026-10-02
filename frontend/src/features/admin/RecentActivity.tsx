@@ -1,62 +1,16 @@
-import { Ban, History, MailCheck, MailPlus, RotateCcw, UserCheck, UserCog, UserPlus, type LucideIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
-import { parseApiError } from '@/features/auth/apiError'
-import { ROLE_LABEL } from '@/lib/roles'
+import { Link } from 'react-router'
+import { ArrowRight, History } from 'lucide-react'
+import { buttonVariants } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { ActivityFeed } from './ActivityFeed'
 import { useListAuditLogsQuery } from './adminApi'
-import type { AuditAction, AuditLog } from './types'
 
-const ICON: Record<AuditAction, LucideIcon> = {
-  'user.invited': UserPlus,
-  'invite.resent': MailPlus,
-  'invite.accepted': UserCheck,
-  'user.role_changed': UserCog,
-  'user.deactivated': Ban,
-  'user.reactivated': RotateCcw,
-}
+const SHOWN = 5
 
-// One readable sentence per audit entry. Names come from the snapshot saved
-// with the entry when the user has since been removed.
-function describe(log: AuditLog): string {
-  const actor = log.actor?.name ?? 'Someone'
-  const d = log.details ?? {}
-  const target = log.target?.name ?? d.name ?? 'a user'
-  const label = (r?: keyof typeof ROLE_LABEL) => (r ? ROLE_LABEL[r] : 'user')
-  switch (log.action) {
-    case 'user.invited':
-      return `${actor} invited ${target} as ${label(d.role)}`
-    case 'invite.resent':
-      return `${actor} resent the invite to ${target}`
-    case 'invite.accepted':
-      return `${actor} accepted their invite and joined as ${label(d.role)}`
-    case 'user.role_changed':
-      return `${actor} changed ${target}'s role from ${label(d.from)} to ${label(d.to)}`
-    case 'user.deactivated':
-      return d.wasInvited ? `${actor} cancelled the invite for ${target}` : `${actor} deactivated ${target}`
-    case 'user.reactivated':
-      return `${actor} reactivated ${target}`
-  }
-}
-
-// "5 minutes ago", "yesterday", …
-const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
-function timeAgo(iso: string): string {
-  const seconds = Math.round((new Date(iso).getTime() - Date.now()) / 1000)
-  if (Number.isNaN(seconds)) return '' // invalid date: formatting it would throw
-  const steps: [Intl.RelativeTimeFormatUnit, number][] = [
-    ['day', 86400],
-    ['hour', 3600],
-    ['minute', 60],
-  ]
-  for (const [unit, size] of steps) {
-    if (Math.abs(seconds) >= size) return rtf.format(Math.round(seconds / size), unit)
-  }
-  return 'just now'
-}
-
+// Dashboard card: only the newest few entries, so the card stays short.
+// The full, paginated history is on the Activity page.
 export function RecentActivity() {
-  const { data, error, isLoading, refetch } = useListAuditLogsQuery({ limit: 10 })
+  const { data, error, isLoading, refetch } = useListAuditLogsQuery({ page: 1, pageSize: SHOWN })
 
   return (
     <Card>
@@ -68,45 +22,16 @@ export function RecentActivity() {
         <CardDescription>Invites and account changes, newest first.</CardDescription>
       </CardHeader>
       <CardContent>
-        {error ? (
-          <div className="flex items-center justify-between gap-2 text-sm">
-            <p className="text-destructive">{parseApiError(error).message}</p>
-            <Button variant="outline" size="sm" onClick={() => void refetch()}>
-              Try again
-            </Button>
-          </div>
-        ) : isLoading ? (
-          <div className="grid gap-3">
-            {Array.from({ length: 3 }, (_, i) => (
-              <Skeleton key={i} className="h-8 w-full" />
-            ))}
-          </div>
-        ) : data?.logs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing yet. Invites you send will appear here.</p>
-        ) : (
-          <ul className="grid gap-3">
-            {data?.logs.map((log) => {
-              const Icon = ICON[log.action] ?? MailCheck
-              return (
-                <li key={log.id} className="flex items-start gap-3 text-sm">
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
-                    <Icon className="size-3.5" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0">
-                    <p>{describe(log)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      <time dateTime={log.createdAt} title={new Date(log.createdAt).toLocaleString('en-IN')}>
-                        {timeAgo(log.createdAt)}
-                      </time>
-                      {log.details?.emailSent === false && ' · email not sent'}
-                    </p>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        )}
+        <ActivityFeed logs={data?.logs} error={error} isLoading={isLoading} onRetry={() => void refetch()} />
       </CardContent>
+      {!!data?.total && (
+        <CardFooter>
+          <Link to="/admin/activity" className={buttonVariants({ variant: 'link', className: 'px-0' })}>
+            View all activity{data.total > SHOWN ? ` (${data.total})` : ''}
+            <ArrowRight aria-hidden="true" />
+          </Link>
+        </CardFooter>
+      )}
     </Card>
   )
 }

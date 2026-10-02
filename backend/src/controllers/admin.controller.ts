@@ -249,14 +249,25 @@ export async function changeStatus(req: Request, res: Response) {
   });
 }
 
-// Newest audit entries for the Admin dashboard's "Recent activity".
+// Audit entries, newest first, one page at a time. Used by the dashboard's
+// "Recent activity" card (first 5) and the full Activity page.
 export async function listAuditLogs(req: Request, res: Response) {
-  const { limit } = parseOrThrow(auditLogQuerySchema, req.query);
-  const logs = await AuditLogModel.find()
-    .sort({ createdAt: -1, _id: -1 })
-    .limit(limit)
-    // Replace the actor/target ids with their current name and email.
-    .populate('actor', 'name email role')
-    .populate('target', 'name email role');
-  res.json({ logs: logs.map((l) => l.toJSON()) });
+  const { page, pageSize } = parseOrThrow(auditLogQuerySchema, req.query);
+  const [logs, total] = await Promise.all([
+    AuditLogModel.find()
+      .sort({ createdAt: -1, _id: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      // Replace the actor/target ids with their current name and email.
+      .populate('actor', 'name email role')
+      .populate('target', 'name email role'),
+    AuditLogModel.estimatedDocumentCount(), // fast: no filter, so MongoDB reads its stored count
+  ]);
+  res.json({
+    logs: logs.map((l) => l.toJSON()),
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  });
 }
