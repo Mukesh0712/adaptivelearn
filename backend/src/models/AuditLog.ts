@@ -3,7 +3,14 @@ import { Schema, model, type InferSchemaType } from 'mongoose';
 // Every action that changes who can use the platform is recorded here:
 // who did it (actor), to whom (target), what, and when. Entries are only
 // ever added, never edited or deleted, so they form a trustworthy history.
-export const AUDIT_ACTIONS = ['user.invited', 'invite.accepted'] as const;
+export const AUDIT_ACTIONS = [
+  'user.invited',
+  'invite.resent',
+  'invite.accepted',
+  'user.role_changed',
+  'user.deactivated',
+  'user.reactivated',
+] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 const auditLogSchema = new Schema(

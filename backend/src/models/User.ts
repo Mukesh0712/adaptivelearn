@@ -11,6 +11,10 @@ export const SELF_REGISTER_ROLES = ['student', 'parent'] as const;
 // Roles an Admin can invite by email. Admins are never invited (seed script only).
 export const INVITE_ROLES = ['instructor'] as const;
 
+// Roles an Admin can switch a user to. Never admin: admin accounts only come
+// from the seed script, so an Admin can't promote anyone (or be demoted).
+export const ASSIGNABLE_ROLES = ['student', 'parent', 'instructor'] as const;
+
 // active      → can log in.
 // invited     → created by an Admin invite; has no password until the invite
 //               is accepted, so cannot log in yet.

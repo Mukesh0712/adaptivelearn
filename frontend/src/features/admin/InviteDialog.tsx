@@ -117,7 +117,14 @@ function InviteFlow({ onInviteAnother }: { onInviteAnother: () => void }) {
 
 const expiryFormat = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
 
-function InviteResult({ result, onInviteAnother }: { result: InviteResponse; onInviteAnother: () => void }) {
+// Shown after inviting someone and after resending an invite.
+export function InviteResult({
+  result,
+  onInviteAnother,
+}: {
+  result: InviteResponse
+  onInviteAnother?: () => void
+}) {
   const linkRef = useRef<HTMLInputElement>(null)
 
   const copyLink = async () => {
@@ -173,9 +180,11 @@ function InviteResult({ result, onInviteAnother }: { result: InviteResponse; onI
       </div>
 
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onInviteAnother}>
-          Invite another
-        </Button>
+        {onInviteAnother && (
+          <Button type="button" variant="outline" onClick={onInviteAnother}>
+            Invite another
+          </Button>
+        )}
         <DialogClose render={<Button type="button" />}>Done</DialogClose>
       </DialogFooter>
     </div>
