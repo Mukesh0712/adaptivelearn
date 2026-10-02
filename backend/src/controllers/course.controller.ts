@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import type { Types } from 'mongoose';
 import { CourseModel, type CourseDocument } from '../models/Course.js';
 import { EnrollmentModel } from '../models/Enrollment.js';
+import { UserModel } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
 import { audit } from '../utils/audit.js';
 import { studentCounts } from '../utils/courseStats.js';
@@ -18,55 +19,78 @@ import {
 const isDuplicateKey = (err: unknown) =>
   typeof err === 'object' && err !== null && 'code' in err && err.code === 11000;
 
-
-
-// Finds a course owned by the logged-in instructor. Someone else's course
-// gives the same 404 as a course that doesn't exist, so instructors can't
-// probe which course ids exist.
+// Finds the course in the URL if the logged-in user may manage it: its own
+// instructor, or any admin. Someone else's course gives the same 404 as a
+// course that doesn't exist, so instructors can't probe which ids exist.
+// (Admins and instructors share these routes, and so one page in the UI.)
 async function ownCourse(req: Request): Promise<CourseDocument> {
   const id = courseIdParamSchema.safeParse(req.params).data?.id;
-  const course = id ? await CourseModel.findOne({ _id: id, instructor: req.user!.id }) : null;
+  const filter = req.user!.role === 'admin' ? { _id: id } : { _id: id, instructor: req.user!.id };
+  const course = id ? await CourseModel.findOne(filter) : null;
   if (!course) throw ApiError.notFound('Course not found');
   return course;
 }
+
+// Creates a course with a fresh join code. A new random code almost never
+// collides (887 million possibilities), but if it does, the unique index
+// rejects it and we simply try another one. Shared by instructors creating
+// their own course and admins creating one for an instructor.
+export async function insertCourse(
+  fields: CreateCourseInput,
+  instructorId: string,
+): Promise<CourseDocument> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      return await CourseModel.create({ ...fields, instructor: instructorId, joinCode: generateJoinCode() });
+    } catch (err) {
+      if (!isDuplicateKey(err)) throw err;
+    }
+  }
+  throw new Error('Could not generate a unique join code');
+}
+
+// Only a course nobody ever joined can be deleted (e.g. created by mistake).
+export const canDelete = (course: { hasHadStudents?: boolean | null }, studentCount: number) =>
+  !course.hasHadStudents && studentCount === 0;
 
 // GET /api/courses/mine : the instructor's courses, active first, newest first.
 export async function listMyCourses(req: Request, res: Response) {
   const courses = await CourseModel.find({ instructor: req.user!.id }).sort({ status: 1, createdAt: -1 });
   const counts = await studentCounts(courses.map((c) => c._id));
-  res.json({ courses: courses.map((c) => ({ ...c.toJSON(), studentCount: counts.get(c.id) ?? 0 })) });
+  res.json({
+    courses: courses.map((c) => {
+      const studentCount = counts.get(c.id) ?? 0;
+      return { ...c.toJSON(), studentCount, canDelete: canDelete(c, studentCount) };
+    }),
+  });
 }
 
 // GET /api/courses/:id : one of the instructor's own courses, with its count.
 export async function getCourse(req: Request, res: Response) {
   const course = await ownCourse(req);
   const counts = await studentCounts([course._id]);
-  res.json({ course: { ...course.toJSON(), studentCount: counts.get(course.id) ?? 0 } });
+  // The admin's view of the page also shows who teaches the course.
+  const instructor =
+    req.user!.role === 'admin'
+      ? await UserModel.findById(course.instructor).select('name email status')
+      : null;
+  res.json({
+    course: {
+      ...course.toJSON(),
+      studentCount: counts.get(course.id) ?? 0,
+      canDelete: canDelete(course, counts.get(course.id) ?? 0),
+      ...(instructor
+        ? { instructorInfo: { id: instructor.id, name: instructor.name, email: instructor.email, status: instructor.status } }
+        : {}),
+    },
+  });
 }
 
 // POST /api/courses
 export async function createCourse(req: Request, res: Response) {
-  const { title, code, description } = req.body as CreateCourseInput;
-
-  // A new random code almost never collides (887 million possibilities), but
-  // if it does, the unique index rejects it and we simply try another one.
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      const course = await CourseModel.create({
-        title,
-        code,
-        description,
-        instructor: req.user!.id,
-        joinCode: generateJoinCode(),
-      });
-      await audit(req.user!.id, 'course.created', null, { courseId: course.id, title: course.title });
-      res.status(201).json({ course: course.toJSON(), message: `Course "${course.title}" created` });
-      return;
-    } catch (err) {
-      if (!isDuplicateKey(err)) throw err;
-    }
-  }
-  throw new Error('Could not generate a unique join code');
+  const course = await insertCourse(req.body as CreateCourseInput, req.user!.id);
+  await audit(req.user!.id, 'course.created', null, { courseId: course.id, title: course.title });
+  res.status(201).json({ course: course.toJSON(), message: `Course "${course.title}" created` });
 }
 
 // PATCH /api/courses/:id
@@ -181,6 +205,8 @@ export async function joinCourse(req: Request, res: Response) {
 
   try {
     const enrollment = await EnrollmentModel.create({ course: course._id, student: req.user!.id });
+    // Remember forever that this course has had students: it can no longer be deleted.
+    if (!course.hasHadStudents) await CourseModel.updateOne({ _id: course._id }, { hasHadStudents: true });
     res.status(201).json({
       course: studentView(course as unknown as CourseDocument, course.instructor?.name ?? 'Instructor', enrollment.joinedAt),
       message: `You joined "${course.title}"`,
@@ -213,4 +239,20 @@ export async function leaveCourse(req: Request, res: Response) {
   const removed = id ? await EnrollmentModel.findOneAndDelete({ course: id, student: req.user!.id }) : null;
   if (!removed) throw ApiError.notFound("You're not in this course");
   res.json({ message: 'You left the course' });
+}
+
+// DELETE /api/courses/:id : only for a course nobody ever joined (its own
+// instructor or an admin). Anything with history must be archived instead.
+export async function deleteCourse(req: Request, res: Response) {
+  const course = await ownCourse(req);
+  const count = (await studentCounts([course._id])).get(course.id) ?? 0;
+  if (!canDelete(course, count)) {
+    throw ApiError.conflict('Students have joined this course, so it can only be archived, not deleted.');
+  }
+  // Delete only if still never joined: a student joining at this very moment
+  // makes the delete match nothing instead of removing a course in use.
+  const deleted = await CourseModel.findOneAndDelete({ _id: course._id, hasHadStudents: false });
+  if (!deleted) throw ApiError.conflict('Someone just joined this course, so it can only be archived.');
+  await audit(req.user!.id, 'course.deleted', null, { courseId: course.id, title: course.title });
+  res.json({ message: `"${course.title}" deleted` });
 }

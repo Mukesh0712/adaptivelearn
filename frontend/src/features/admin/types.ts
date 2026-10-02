@@ -28,6 +28,7 @@ export interface AdminCourse {
   archivedByAdmin: boolean
   instructor: { id: string; name: string; email: string } | null
   studentCount: number
+  canDelete: boolean
   createdAt: string
 }
 
@@ -76,6 +77,8 @@ export type AuditAction =
   | 'course.restored'
   | 'course.code_reset'
   | 'course.student_removed'
+  | 'course.reassigned'
+  | 'course.deleted'
 
 // actor/target are filled in by the server; null if that user was deleted.
 type AuditUser = Pick<User, 'name' | 'email' | 'role'> & { _id: string }
@@ -90,13 +93,14 @@ export interface AuditLog {
     email?: string
     role?: Role
     emailSent?: boolean
-    from?: Role // role changes
-    to?: Role
+    from?: string // role changes: a role; course reassignment: instructor names
+    to?: string
     wasInvited?: boolean // deactivation of a pending invite = cancelled
     status?: UserStatus // reactivation: 'active', or back to 'invited'
     courseId?: string // course events
     title?: string
     byAdmin?: boolean
+    instructorName?: string
   }
   createdAt: string
 }

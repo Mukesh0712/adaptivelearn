@@ -17,6 +17,8 @@ export const AUDIT_ACTIONS = [
   'course.restored',
   'course.code_reset',
   'course.student_removed',
+  'course.reassigned',
+  'course.deleted',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

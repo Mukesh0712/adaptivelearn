@@ -10,3 +10,8 @@ export const courseSchema = z.object({
     .regex(/^[A-Za-z0-9 -]*$/, 'Use only letters, numbers, spaces and dashes'),
   description: z.string().trim().max(1000, 'Description must be at most 1000 characters'),
 })
+
+// Admin creating a course for someone: also choose the instructor.
+export const adminCourseSchema = courseSchema.extend({
+  instructorId: z.string().min(1, 'Choose an instructor'),
+})

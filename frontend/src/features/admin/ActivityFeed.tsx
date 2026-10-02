@@ -3,6 +3,8 @@ import {
   ArchiveRestore,
   Ban,
   BookPlus,
+  BookX,
+  ArrowRightLeft,
   CircleCheck,
   CircleX,
   KeyRound,
@@ -35,6 +37,8 @@ const ICON: Record<AuditAction, LucideIcon> = {
   'course.restored': ArchiveRestore,
   'course.code_reset': KeyRound,
   'course.student_removed': UserMinus,
+  'course.reassigned': ArrowRightLeft,
+  'course.deleted': BookX,
 }
 
 // One readable sentence per audit entry. Names come from the snapshot saved
@@ -43,7 +47,7 @@ function describe(log: AuditLog): string {
   const actor = log.actor?.name ?? 'Someone'
   const d = log.details ?? {}
   const target = log.target?.name ?? d.name ?? 'a user'
-  const label = (r?: keyof typeof ROLE_LABEL) => (r ? ROLE_LABEL[r] : 'user')
+  const label = (r?: string) => (r && r in ROLE_LABEL ? ROLE_LABEL[r as keyof typeof ROLE_LABEL] : 'user')
   switch (log.action) {
     case 'user.invited':
       return `${actor} invited ${target} as ${label(d.role)}`
@@ -62,7 +66,13 @@ function describe(log: AuditLog): string {
     case 'user.rejected':
       return `${actor} rejected the sign-up from ${d.name ?? 'someone'} (${label(d.role)})`
     case 'course.created':
-      return `${actor} created the course ${d.title ?? ''}`
+      return d.instructorName
+        ? `${actor} created the course ${d.title ?? ''} for ${d.instructorName}`
+        : `${actor} created the course ${d.title ?? ''}`
+    case 'course.reassigned':
+      return `${actor} moved ${d.title ?? 'a course'} from ${d.from ?? 'someone'} to ${d.to ?? 'someone'}`
+    case 'course.deleted':
+      return `${actor} deleted the course ${d.title ?? ''}`
     case 'course.archived':
       return `${actor} archived the course ${d.title ?? ''}`
     case 'course.restored':

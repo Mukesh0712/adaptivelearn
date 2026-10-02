@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router'
-import { Archive, ArchiveRestore, BookOpen, MoreHorizontal, Search } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router'
+import { Archive, ArchiveRestore, BookOpen, MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageMeta } from '@/components/PageMeta'
 import { Pagination } from '@/components/Pagination'
@@ -30,6 +30,8 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { useListCoursesQuery, useSetAnyCourseStatusMutation } from '@/features/admin/adminApi'
 import type { AdminCourse } from '@/features/admin/types'
 import { parseApiError } from '@/features/auth/apiError'
+import { CourseFormDialog } from '@/features/courses/CourseFormDialog'
+import { DeleteCourseDialog } from '@/features/courses/DeleteCourseDialog'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { cn } from '@/lib/utils'
 
@@ -54,6 +56,7 @@ export default function AdminCoursesPage() {
   const page = Math.max(1, Number(params.get('page')) || 1)
   const urlQuery = params.get('q') ?? ''
   const [search, setSearch] = useState(urlQuery)
+  const [creating, setCreating] = useState(false)
   const debouncedSearch = useDebouncedValue(search.trim())
 
   const updateParams = (changes: Record<string, string | undefined>) => {
@@ -87,10 +90,17 @@ export default function AdminCoursesPage() {
   return (
     <div className="space-y-6">
       <PageMeta title="Courses" />
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Courses</h1>
-        <p className="text-muted-foreground">Every course on the platform. Search by title or course code.</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Courses</h1>
+          <p className="text-muted-foreground">Every course on the platform. Search by title or course code.</p>
+        </div>
+        <Button onClick={() => setCreating(true)}>
+          <Plus aria-hidden="true" />
+          New course
+        </Button>
       </div>
+      <CourseFormDialog forAdmin open={creating} onOpenChange={setCreating} />
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">
@@ -172,7 +182,9 @@ export default function AdminCoursesPage() {
                       <TableRow key={course.id}>
                         <TableCell className="pl-4 whitespace-normal">
                           <div className="flex flex-wrap items-center gap-1.5 font-medium">
-                            {course.title}
+                            <Link to={`/admin/courses/${course.id}`} className="hover:underline">
+                              {course.title}
+                            </Link>
                             {course.code && <Badge variant="secondary">{course.code}</Badge>}
                             {course.status === 'archived' && (
                               <Badge variant="outline">{course.archivedByAdmin ? 'Archived by admin' : 'Archived'}</Badge>
@@ -221,6 +233,7 @@ export default function AdminCoursesPage() {
 
 function CourseActions({ course }: { course: AdminCourse }) {
   const [confirm, setConfirm] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [setStatus, { isLoading }] = useSetAnyCourseStatusMutation()
 
   const change = async (status: 'active' | 'archived') => {
@@ -253,9 +266,16 @@ function CourseActions({ course }: { course: AdminCourse }) {
               Restore
             </DropdownMenuItem>
           )}
+          {course.canDelete && (
+            <DropdownMenuItem variant="destructive" onClick={() => setConfirmDelete(true)}>
+              <Trash2 aria-hidden="true" />
+              Delete
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <DeleteCourseDialog course={course} open={confirmDelete} onOpenChange={setConfirmDelete} />
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>

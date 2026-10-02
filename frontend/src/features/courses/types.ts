@@ -11,6 +11,10 @@ export interface Course {
   status: CourseStatus
   archivedByAdmin?: boolean // archived by an admin: only an admin can restore it
   studentCount?: number // included in the instructor's lists
+  hasHadStudents?: boolean // someone has joined at some point
+  canDelete?: boolean // nobody ever joined, so it may be deleted
+  // Only in the admin's view of a course page.
+  instructorInfo?: { id: string; name: string; email: string; status?: string }
   createdAt: string
   updatedAt: string
 }

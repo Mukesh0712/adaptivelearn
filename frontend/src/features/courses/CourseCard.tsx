@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Users } from 'lucide-react'
+import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Trash2, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { CopyButton } from '@/components/CopyButton'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -25,6 +25,7 @@ import {
 import { parseApiError } from '@/features/auth/apiError'
 import { cn } from '@/lib/utils'
 import { CourseFormDialog } from './CourseFormDialog'
+import { DeleteCourseDialog } from './DeleteCourseDialog'
 import { useSetCourseStatusMutation } from './coursesApi'
 import { formatJoinCode } from './joinCode'
 import type { Course } from './types'
@@ -33,6 +34,7 @@ import type { Course } from './types'
 export function CourseCard({ course }: { course: Course }) {
   const [editing, setEditing] = useState(false)
   const [confirmArchive, setConfirmArchive] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [setStatus, { isLoading }] = useSetCourseStatusMutation()
   const archived = course.status === 'archived'
 
@@ -85,6 +87,13 @@ export function CourseCard({ course }: { course: Course }) {
                   Archive
                 </DropdownMenuItem>
               )}
+              {/* Only offered for a course nobody ever joined. */}
+              {course.canDelete && (
+                <DropdownMenuItem variant="destructive" onClick={() => setConfirmDelete(true)}>
+                  <Trash2 aria-hidden="true" />
+                  Delete
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -118,6 +127,7 @@ export function CourseCard({ course }: { course: Course }) {
       )}
 
       <CourseFormDialog course={course} open={editing} onOpenChange={setEditing} />
+      <DeleteCourseDialog course={course} open={confirmDelete} onOpenChange={setConfirmDelete} />
 
       <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
         <AlertDialogContent>

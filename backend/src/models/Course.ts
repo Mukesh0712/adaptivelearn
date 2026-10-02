@@ -19,6 +19,9 @@ const courseSchema = new Schema(
     // true when an Admin archived it (e.g. inappropriate content): the
     // instructor can't restore it themselves, only an Admin can.
     archivedByAdmin: { type: Boolean, default: false },
+    // Set the first time a student joins, and never cleared. A course can only
+    // be deleted while this is false: anything with history is archived instead.
+    hasHadStudents: { type: Boolean, default: false },
   },
   {
     timestamps: true,

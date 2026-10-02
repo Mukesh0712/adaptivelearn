@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Link, useParams } from 'react-router'
-import { ArrowLeft, RefreshCw, UserMinus, Users } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
+import { Link, useNavigate, useParams } from 'react-router'
+import { ArrowLeft, ArrowRightLeft, GraduationCap, Pencil, RefreshCw, Trash2, UserMinus, Users } from 'lucide-react'
+import { useAuth } from '@/app/hooks'
 import { toast } from 'sonner'
 import { CopyButton } from '@/components/CopyButton'
 import { PageMeta } from '@/components/PageMeta'
@@ -17,6 +18,21 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { useReassignCourseMutation } from '@/features/admin/adminApi'
+import { InstructorSelect } from '@/features/admin/InstructorSelect'
+import { FieldError } from '@/features/auth/pages/AuthCard'
+import { CourseFormDialog } from '@/features/courses/CourseFormDialog'
+import { DeleteCourseDialog } from '@/features/courses/DeleteCourseDialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { StatusBadge } from '@/features/admin/UserBadges'
@@ -36,15 +52,22 @@ const formatDate = (iso: string) => {
   return Number.isNaN(date.getTime()) ? '' : dateFormat.format(date)
 }
 
-// Instructor → one course: join code (copy / regenerate) and the class list.
+// One course: join code (copy / regenerate) and the class list. Shared by
+// the instructor (their own course) and the admin (any course), who also
+// sees who teaches it and can move it to another instructor.
 export default function CourseDetailPage() {
   const { courseId = '' } = useParams()
   const { data, error, isLoading } = useCourseQuery(courseId)
+  const isAdmin = useAuth().user?.role === 'admin'
+  const navigate = useNavigate()
+  const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const listPath = isAdmin ? '/admin/courses' : '/instructor/courses'
 
   const back = (
-    <Link to="/instructor/courses" className={buttonVariants({ variant: 'ghost', size: 'sm', className: '-ml-2.5' })}>
+    <Link to={listPath} className={buttonVariants({ variant: 'ghost', size: 'sm', className: '-ml-2.5' })}>
       <ArrowLeft aria-hidden="true" />
-      My courses
+      {isAdmin ? 'Courses' : 'My courses'}
     </Link>
   )
 
@@ -76,7 +99,21 @@ export default function CourseDetailPage() {
       <PageMeta title={course.title} />
       <div className="space-y-2">
         {back}
-        <h1 className="text-2xl font-semibold tracking-tight break-words">{course.title}</h1>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight break-words">{course.title}</h1>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+              <Pencil aria-hidden="true" />
+              Edit
+            </Button>
+            {course.canDelete && (
+              <Button variant="destructive" size="sm" onClick={() => setDeleting(true)}>
+                <Trash2 aria-hidden="true" />
+                Delete
+              </Button>
+            )}
+          </div>
+        </div>
         <div className="flex flex-wrap gap-1.5">
           {course.code && <Badge variant="secondary">{course.code}</Badge>}
           {course.status === 'archived' && <Badge variant="outline">Archived</Badge>}
@@ -84,16 +121,118 @@ export default function CourseDetailPage() {
         {course.description && <p className="max-w-3xl text-muted-foreground">{course.description}</p>}
       </div>
 
+      {isAdmin && <InstructorCard course={course} />}
+
       {course.status === 'active' ? (
         <JoinCodeCard course={course} />
       ) : (
         <p className="rounded-lg border bg-muted px-3 py-2 text-sm">
-          This course is archived: students can't see it or join it. Restore it from My courses to use it again.
+          This course is archived: students can't see it or join it. Restore it from {isAdmin ? 'Courses' : 'My courses'}{' '}
+          to use it again.
         </p>
       )}
 
       <StudentsCard course={course} />
+
+      <CourseFormDialog course={course} open={editing} onOpenChange={setEditing} />
+      <DeleteCourseDialog
+        course={course}
+        open={deleting}
+        onOpenChange={setDeleting}
+        onDeleted={() => navigate(listPath, { replace: true })}
+      />
     </div>
+  )
+}
+
+// Admin only: who teaches the course, and moving it to another instructor
+// (e.g. when a teacher leaves). Students and the join code stay the same.
+function InstructorCard({ course }: { course: Course }) {
+  const [open, setOpen] = useState(false)
+  const info = course.instructorInfo
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <GraduationCap className="size-4" aria-hidden="true" />
+          Instructor
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-wrap items-center justify-between gap-3">
+        {info ? (
+          <div>
+            <div className="flex flex-wrap items-center gap-1.5 font-medium">
+              {info.name}
+              {info.status && info.status !== 'active' && (
+                <StatusBadge status={info.status as CourseStudent['status']} />
+              )}
+            </div>
+            <div className="text-sm text-muted-foreground">{info.email}</div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No instructor</p>
+        )}
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+          <ArrowRightLeft aria-hidden="true" />
+          Change instructor
+        </Button>
+      </CardContent>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>{open && <ReassignForm course={course} onDone={() => setOpen(false)} />}</DialogContent>
+      </Dialog>
+    </Card>
+  )
+}
+
+function ReassignForm({ course, onDone }: { course: Course; onDone: () => void }) {
+  const [instructorId, setInstructorId] = useState('')
+  const [error, setError] = useState('')
+  const [reassign, { isLoading }] = useReassignCourseMutation()
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!instructorId) {
+      setError('Choose an instructor')
+      return
+    }
+    try {
+      toast.success((await reassign({ id: course.id, instructorId }).unwrap()).message)
+      onDone()
+    } catch (err) {
+      setError(parseApiError(err).message)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="grid gap-4" noValidate>
+      <DialogHeader>
+        <DialogTitle>Change instructor</DialogTitle>
+        <DialogDescription>
+          {course.title} moves to the new instructor's My courses. Students and the join code stay the same.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="grid gap-2">
+        <Label htmlFor="new-instructor">New instructor</Label>
+        <InstructorSelect
+          id="new-instructor"
+          value={instructorId}
+          onChange={(id) => {
+            setInstructorId(id)
+            setError('')
+          }}
+          excludeId={course.instructorInfo?.id}
+          invalid={!!error}
+          describedBy={error ? 'new-instructor-error' : undefined}
+        />
+        <FieldError id="new-instructor-error" message={error} />
+      </div>
+      <DialogFooter>
+        <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+        <SubmitButton loading={isLoading} loadingText="Moving…" className="sm:w-auto">
+          Move course
+        </SubmitButton>
+      </DialogFooter>
+    </form>
   )
 }
 
