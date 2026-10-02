@@ -45,6 +45,14 @@ export const resetPasswordSchema = z
   .object({ password: newPassword, confirmPassword: z.string().min(1, 'Please confirm your password') })
   .refine((v) => v.password === v.confirmPassword, passwordsMatch)
 
+export const acceptInviteSchema = z
+  .object({
+    password: newPassword,
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+    acceptTerms: z.literal(true, { error: 'Please accept the Terms and Privacy Policy' }),
+  })
+  .refine((v) => v.password === v.confirmPassword, passwordsMatch)
+
 export type FieldErrors = Record<string, string>
 
 // Runs a schema and returns the first error message per field ({} if valid).

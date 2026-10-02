@@ -30,6 +30,8 @@ const envSchema = z.object({
   REMEMBER_ME_TTL: z.string().default('30d'),
 
   PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().positive().default(30),
+  // How long an Admin's invite link stays valid.
+  INVITE_TTL_HOURS: z.coerce.number().int().positive().default(24),
 
   // Email (optional). Provider is chosen automatically:
   //   BREVO_API_KEY set           → Brevo HTTPS API (works on hosts that block SMTP, e.g. Render)

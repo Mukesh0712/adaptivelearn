@@ -1,9 +1,9 @@
 import type { Request, Response } from 'express';
 import { env, isProduction } from '../config/env.js';
-import { UserModel, type UserDocument } from '../models/User.js';
+import { UserModel, type UserDocument, type UserStatus } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
 import {
-  generateResetToken,
+  generateLinkToken,
   hashToken,
   signAccessToken,
   signRefreshToken,
@@ -12,7 +12,11 @@ import {
 import { hashPassword, verifyPassword } from '../utils/password.js';
 import { REFRESH_COOKIE, clearRefreshCookie, setRefreshCookie } from '../utils/cookies.js';
 import { sendPasswordResetEmail } from '../utils/mailer.js';
+import { audit } from '../utils/audit.js';
+import { parseOrThrow } from '../middleware/validate.js';
+import { inviteTokenQuerySchema } from '../validators/auth.schema.js';
 import type {
+  AcceptInviteInput,
   ForgotPasswordInput,
   LoginInput,
   RegisterInput,
@@ -29,6 +33,10 @@ interface NewRefresh {
   hash: string;
   expiresAt: Date;
 }
+
+// Statuses that may hold a session. $nin also matches accounts with no status
+// saved (created before statuses existed), which count as active.
+const CAN_SIGN_IN: { $nin: UserStatus[] } = { $nin: ['invited', 'deactivated'] };
 
 function newRefreshToken(userId: string, rememberMe: boolean): NewRefresh {
   const { token, expiresAt } = signRefreshToken(userId, rememberMe);
@@ -82,12 +90,22 @@ export async function login(req: Request, res: Response) {
 
   // Same message for "no such user" and "wrong password", so attackers can't
   // use the login form to discover which emails are registered.
+  // (Invited users have no password yet, so they always land here too.)
   if (!user || !passwordOk) {
     throw ApiError.unauthorized('Invalid email or password');
   }
+  // Only revealed AFTER a correct password, so it doesn't tell strangers
+  // which emails belong to deactivated accounts.
+  if (user.status === 'deactivated') {
+    throw ApiError.forbidden('This account has been deactivated. Please contact your administrator.');
+  }
 
   const refresh = newRefreshToken(user.id, rememberMe);
-  await UserModel.updateOne({ _id: user._id }, { refreshTokenHash: refresh.hash });
+  user.lastLoginAt = new Date();
+  await UserModel.updateOne(
+    { _id: user._id },
+    { refreshTokenHash: refresh.hash, lastLoginAt: user.lastLoginAt },
+  );
   sendSession(res, user, refresh, rememberMe);
 }
 
@@ -116,14 +134,14 @@ export async function refresh(req: Request, res: Response) {
 
   const next = newRefreshToken(payload.sub, payload.rememberMe);
   const user = await UserModel.findOneAndUpdate(
-    { _id: payload.sub, refreshTokenHash: hashToken(token) },
+    { _id: payload.sub, refreshTokenHash: hashToken(token), status: CAN_SIGN_IN },
     { refreshTokenHash: next.hash },
     { returnDocument: 'after' },
   );
 
   if (!user) {
     // Validly signed but not the current token → an old token is being
-    // replayed, possibly stolen. Kill the session so the thief is locked out
+    // replayed, possibly stolen (or the account was deactivated meanwhile). Kill the session so the thief is locked out
     // too (the real user just has to log in again).
     await UserModel.updateOne({ _id: payload.sub }, { refreshTokenHash: null });
     clearRefreshCookie(res);
@@ -156,9 +174,11 @@ export async function me(req: Request, res: Response) {
 export async function forgotPassword(req: Request, res: Response) {
   const { email } = req.body as ForgotPasswordInput;
 
-  const user = await UserModel.findOne({ email });
+  // Invited and deactivated accounts can't reset a password (an invited user
+  // sets theirs by accepting the invite).
+  const user = await UserModel.findOne({ email, status: CAN_SIGN_IN });
   if (user) {
-    const token = generateResetToken();
+    const token = generateLinkToken();
     await UserModel.updateOne(
       { _id: user._id },
       {
@@ -176,7 +196,7 @@ export async function forgotPassword(req: Request, res: Response) {
       );
     });
   } else if (!isProduction) {
-    console.log(`Email: no account for ${email}, so no reset email was sent (the user still sees the same reply)`);
+    console.log(`Email: no active account for ${email}, so no reset email was sent (the user still sees the same reply)`);
   }
 
   res.json({ message: 'If an account exists for that email, we have sent a password reset link.' });
@@ -188,7 +208,11 @@ export async function resetPassword(req: Request, res: Response) {
   const { token, password } = req.body as ResetPasswordInput;
 
   const user = await UserModel.findOneAndUpdate(
-    { resetPasswordTokenHash: hashToken(token), resetPasswordExpiresAt: { $gt: new Date() } },
+    {
+      resetPasswordTokenHash: hashToken(token),
+      resetPasswordExpiresAt: { $gt: new Date() },
+      status: CAN_SIGN_IN,
+    },
     {
       password: await hashPassword(password),
       resetPasswordTokenHash: null,
@@ -202,4 +226,46 @@ export async function resetPassword(req: Request, res: Response) {
 
   clearRefreshCookie(res);
   res.json({ message: 'Your password has been updated. Please log in with your new password.' });
+}
+
+const INVALID_INVITE =
+  'This invite link is invalid or has expired. Please ask your administrator to send a new one.';
+
+// Finds the invited user an invite link belongs to (if still valid).
+const pendingInvite = (token: string) => ({
+  inviteTokenHash: hashToken(token),
+  inviteExpiresAt: { $gt: new Date() },
+  status: 'invited' as const,
+});
+
+// GET /api/auth/invite?token= : lets the accept page greet the person by
+// name and show which email and role they were invited with.
+export async function verifyInvite(req: Request, res: Response) {
+  const { token } = parseOrThrow(inviteTokenQuerySchema, req.query);
+  const user = await UserModel.findOne(pendingInvite(token));
+  if (!user) throw ApiError.badRequest(INVALID_INVITE);
+  res.json({ name: user.name, email: user.email, role: user.role });
+}
+
+// Sets the password and activates the account in one atomic update. The
+// link is single-use: the token hash is cleared at the same time. The user
+// then logs in normally (same as after registering).
+export async function acceptInvite(req: Request, res: Response) {
+  const { token, password } = req.body as AcceptInviteInput;
+
+  const user = await UserModel.findOneAndUpdate(
+    pendingInvite(token),
+    {
+      password: await hashPassword(password),
+      status: 'active',
+      inviteTokenHash: null,
+      inviteExpiresAt: null,
+      termsAcceptedAt: new Date(),
+    },
+    { returnDocument: 'after' },
+  );
+  if (!user) throw ApiError.badRequest(INVALID_INVITE);
+
+  await audit(user._id, 'invite.accepted', user._id, { role: user.role });
+  res.json({ email: user.email, message: 'Your account is active. Please log in.' });
 }

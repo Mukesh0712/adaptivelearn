@@ -51,8 +51,9 @@ export function verifyRefreshToken(token: string): { sub: string; rememberMe: bo
   return { sub: decoded.sub, rememberMe: decoded.rm === true };
 }
 
-// Random single-use token for password-reset links (256 bits of randomness).
-export function generateResetToken(): string {
+// Random single-use token for emailed links: password reset and invites
+// (256 bits of randomness).
+export function generateLinkToken(): string {
   return crypto.randomBytes(32).toString('hex');
 }
 

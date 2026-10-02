@@ -58,6 +58,8 @@ const NO_RETRY = [
   '/auth/logout',
   '/auth/forgot-password',
   '/auth/reset-password',
+  '/auth/invite',
+  '/auth/accept-invite',
 ]
 
 // Wraps every API call: if the access token has expired (401), silently get
@@ -82,8 +84,11 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 }
 
 // Feature slices add their endpoints with baseApi.injectEndpoints(...).
+// Tags link cached queries to the mutations that change them: e.g. sending
+// an invite marks 'Users' as stale, so the Users list refetches by itself.
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithReauth,
+  tagTypes: ['Users', 'AuditLogs'],
   endpoints: () => ({}),
 })

@@ -127,3 +127,28 @@ export async function sendPasswordResetEmail(to: string, name: string, link: str
   });
   console.log(`Email: password reset link sent to ${to} (message id ${id})`);
 }
+
+export async function sendInviteEmail(
+  to: string,
+  name: string,
+  roleLabel: string,
+  invitedByName: string,
+  link: string,
+) {
+  const hours = env.INVITE_TTL_HOURS;
+  await sendEmail({
+    to,
+    toName: name,
+    subject: `You're invited to join AdaptiveLearn as ${roleLabel === 'Instructor' ? 'an' : 'a'} ${roleLabel}`,
+    text:
+      `Hi ${name},\n\n${invitedByName} has invited you to join AdaptiveLearn as ${roleLabel}.\n` +
+      `Open this link to set your password and activate your account (valid for ${hours} hours):\n\n${link}\n\n` +
+      `If you weren't expecting this, you can ignore this email.`,
+    html:
+      `<p>Hi ${escapeHtml(name)},</p>` +
+      `<p>${escapeHtml(invitedByName)} has invited you to join AdaptiveLearn as <strong>${escapeHtml(roleLabel)}</strong>.</p>` +
+      `<p><a href="${link}">Set your password and activate your account</a> (valid for ${hours} hours)</p>` +
+      `<p>If you weren't expecting this, you can ignore this email.</p>`,
+  });
+  console.log(`Email: invite sent to ${to}`);
+}

@@ -1,4 +1,4 @@
-import type { Role, SelfRegisterRole } from '@/lib/roles'
+import type { Role, SelfRegisterRole, UserStatus } from '@/lib/roles'
 
 // Shape of a user as returned by the backend (User model's toJSON).
 export interface User {
@@ -6,6 +6,9 @@ export interface User {
   name: string
   email: string
   role: Role
+  status: UserStatus
+  lastLoginAt?: string | null
+  invitedAt?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -28,6 +31,12 @@ export interface RegisterRequest {
   role: SelfRegisterRole
   acceptTerms: boolean
   website: string // honeypot, always '' for real users
+}
+
+export interface InviteDetails {
+  name: string
+  email: string
+  role: Role
 }
 
 export interface MessageResponse {
