@@ -29,3 +29,18 @@ export type CourseStatusInput = z.infer<typeof courseStatusSchema>;
 
 // :id in the URL must be a MongoDB ObjectId.
 export const courseIdParamSchema = z.object({ id: z.string().regex(/^[a-f0-9]{24}$/) });
+
+// POST /api/courses/join  (accepts "k7q-2mx", " K7Q 2MX " etc.)
+export const joinCourseSchema = z.object({
+  code: z
+    .string({ error: 'Enter a join code' })
+    .transform((v) => v.toUpperCase().replace(/[\s-]/g, ''))
+    .pipe(z.string().regex(/^[A-Z0-9]{6}$/, 'A join code has 6 letters and numbers, like K7Q-2MX')),
+});
+export type JoinCourseInput = z.infer<typeof joinCourseSchema>;
+
+// /api/courses/:id/students/:studentId
+export const studentParamSchema = z.object({
+  id: z.string().regex(/^[a-f0-9]{24}$/),
+  studentId: z.string().regex(/^[a-f0-9]{24}$/),
+});

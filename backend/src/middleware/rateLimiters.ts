@@ -39,3 +39,12 @@ export const passwordResetLimiter = limiter(
 
 // Opening and accepting invite links: stops guessing invite tokens.
 export const inviteLimiter = limiter(15, 20, 'Too many attempts. Please try again in 15 minutes.');
+
+// Joining a course: only WRONG codes count, so normal students are never
+// blocked, but guessing join codes stops after 10 misses in 15 minutes.
+export const joinCourseLimiter = limiter(
+  15,
+  10,
+  'Too many incorrect join codes. Please try again in 15 minutes.',
+  true,
+);
