@@ -116,6 +116,11 @@ function InviteFlow({ onInviteAnother }: { onInviteAnother: () => void }) {
 }
 
 const expiryFormat = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+// Formatting an invalid date throws, so a missing value must never reach format().
+const formatExpiry = (iso?: string) => {
+  const date = iso ? new Date(iso) : null
+  return date && !Number.isNaN(date.getTime()) ? ` · expires ${expiryFormat.format(date)}` : ''
+}
 
 // Shown after inviting someone and after resending an invite.
 export function InviteResult({
@@ -174,8 +179,7 @@ export function InviteResult({
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Single use · expires {expiryFormat.format(new Date(result.expiresAt))}. Only share it with{' '}
-          {result.user.name}.
+          Single use{formatExpiry(result.expiresAt)}. Only share it with {result.user.name}.
         </p>
       </div>
 

@@ -85,10 +85,12 @@ async function emailInvite(user: UserDocument, adminId: string, link: string): P
 // Same response for a new invite and a resent one. The link is returned to
 // the Admin too, so it can be shared another way (e.g. WhatsApp) if the
 // email doesn't arrive.
-const inviteResponse = (user: UserDocument, link: string, emailSent: boolean) => ({
+// expiresAt is passed in rather than read from `user`: inviteExpiresAt has
+// select:false, so a user loaded back from the database doesn't include it.
+const inviteResponse = (user: UserDocument, link: string, expiresAt: Date, emailSent: boolean) => ({
   user: user.toJSON(),
   inviteLink: link,
-  expiresAt: user.inviteExpiresAt,
+  expiresAt,
   emailSent,
   message: emailSent
     ? `Invite sent to ${user.email}`
@@ -122,7 +124,7 @@ export async function createInvite(req: Request, res: Response) {
 
   const emailSent = await emailInvite(user, req.user!.id, invite.link);
   await audit(req.user!.id, 'user.invited', user._id, { name, email, role, emailSent });
-  res.status(201).json(inviteResponse(user, invite.link, emailSent));
+  res.status(201).json(inviteResponse(user, invite.link, invite.fields.inviteExpiresAt, emailSent));
 }
 
 // Loads the user an Admin action targets, enforcing the safety rules that
@@ -171,7 +173,7 @@ export async function resendInvite(req: Request, res: Response) {
     role: updated.role,
     emailSent,
   });
-  res.json(inviteResponse(updated, invite.link, emailSent));
+  res.json(inviteResponse(updated, invite.link, invite.fields.inviteExpiresAt, emailSent));
 }
 
 // PATCH /api/admin/users/:id/role

@@ -20,7 +20,7 @@ const ICON: Record<AuditAction, LucideIcon> = {
 // with the entry when the user has since been removed.
 function describe(log: AuditLog): string {
   const actor = log.actor?.name ?? 'Someone'
-  const d = log.details
+  const d = log.details ?? {}
   const target = log.target?.name ?? d.name ?? 'a user'
   const label = (r?: keyof typeof ROLE_LABEL) => (r ? ROLE_LABEL[r] : 'user')
   switch (log.action) {
@@ -43,6 +43,7 @@ function describe(log: AuditLog): string {
 const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
 function timeAgo(iso: string): string {
   const seconds = Math.round((new Date(iso).getTime() - Date.now()) / 1000)
+  if (Number.isNaN(seconds)) return '' // invalid date: formatting it would throw
   const steps: [Intl.RelativeTimeFormatUnit, number][] = [
     ['day', 86400],
     ['hour', 3600],
@@ -97,7 +98,7 @@ export function RecentActivity() {
                       <time dateTime={log.createdAt} title={new Date(log.createdAt).toLocaleString('en-IN')}>
                         {timeAgo(log.createdAt)}
                       </time>
-                      {log.details.emailSent === false && ' · email not sent'}
+                      {log.details?.emailSent === false && ' · email not sent'}
                     </p>
                   </div>
                 </li>
