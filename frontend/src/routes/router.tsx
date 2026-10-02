@@ -10,6 +10,7 @@ import {
   AdminUsersPage,
   AppLayout,
   ForgotPasswordPage,
+  InstructorCoursesPage,
   InstructorDashboard,
   LoginPage,
   NotFoundPage,
@@ -66,7 +67,10 @@ export const router = createBrowserRouter([
                 path: '/instructor',
                 element: <RoleRoute allow={['instructor']} />,
                 errorElement: <RouteError inLayout />,
-                children: [{ index: true, element: <InstructorDashboard /> }],
+                children: [
+                  { index: true, element: <InstructorDashboard /> },
+                  { path: 'courses', element: <InstructorCoursesPage /> },
+                ],
               },
               {
                 path: '/parent',
