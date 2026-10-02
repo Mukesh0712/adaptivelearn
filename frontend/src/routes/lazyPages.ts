@@ -11,6 +11,7 @@ export const StudentDashboard = lazy(() => import('@/portals/student/StudentDash
 export const InstructorDashboard = lazy(() => import('@/portals/instructor/InstructorDashboard'))
 export const ParentDashboard = lazy(() => import('@/portals/parent/ParentDashboard'))
 export const AdminDashboard = lazy(() => import('@/portals/admin/AdminDashboard'))
+export const AdminUsersPage = lazy(() => import('@/portals/admin/UsersPage'))
 export const PrivacyPage = lazy(() => import('@/features/legal/PrivacyPage'))
 export const TermsPage = lazy(() => import('@/features/legal/TermsPage'))
 export const NotFoundPage = lazy(() => import('@/features/NotFoundPage'))

@@ -22,3 +22,13 @@ export const ROLE_HOME: Record<Role, string> = {
   parent: '/parent',
   admin: '/admin',
 }
+
+// Account status. Must match USER_STATUSES in backend/src/models/User.ts.
+export const USER_STATUSES = ['active', 'invited', 'deactivated'] as const
+export type UserStatus = (typeof USER_STATUSES)[number]
+
+export const STATUS_LABEL: Record<UserStatus, string> = {
+  active: 'Active',
+  invited: 'Invited',
+  deactivated: 'Deactivated',
+}

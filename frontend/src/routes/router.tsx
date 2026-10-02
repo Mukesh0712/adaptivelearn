@@ -4,6 +4,7 @@ import { FullPageLoader } from '@/components/FullPageLoader'
 import { GuestRoute, HomeRedirect, ProtectedRoute, RoleRoute } from './guards'
 import {
   AdminDashboard,
+  AdminUsersPage,
   AppLayout,
   ForgotPasswordPage,
   InstructorDashboard,
@@ -67,7 +68,10 @@ export const router = createBrowserRouter([
               {
                 path: '/admin',
                 element: <RoleRoute allow={['admin']} />,
-                children: [{ index: true, element: <AdminDashboard /> }],
+                children: [
+                  { index: true, element: <AdminDashboard /> },
+                  { path: 'users', element: <AdminUsersPage /> },
+                ],
               },
             ],
           },
