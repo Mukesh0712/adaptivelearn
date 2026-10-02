@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ASSIGNABLE_ROLES, INVITE_ROLES, ROLES, USER_STATUSES } from '../models/User.js';
 import { email } from './auth.schema.js';
+import { COURSE_STATUSES } from '../models/Course.js';
 
 // GET /api/admin/users?q=&role=&status=&page=&pageSize=
 // Query string values always arrive as text, so numbers are coerced.
@@ -45,3 +46,11 @@ export const changeStatusSchema = z.object({
   status: z.enum(['active', 'deactivated'], { error: 'Status must be active or deactivated' }),
 });
 export type ChangeStatusInput = z.infer<typeof changeStatusSchema>;
+
+// GET /api/admin/courses?q=&status=&page=&pageSize=
+export const listCoursesQuerySchema = z.object({
+  q: z.preprocess(emptyToUndefined, z.string().trim().max(100).optional()),
+  status: z.preprocess(emptyToUndefined, z.enum(COURSE_STATUSES).optional()),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(10),
+});

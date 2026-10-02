@@ -6,10 +6,12 @@ import { GuestRoute, HomeRedirect, ProtectedRoute, RoleRoute } from './guards'
 import {
   AcceptInvitePage,
   AdminActivityPage,
+  AdminCoursesPage,
   AdminDashboard,
   AdminUsersPage,
   AppLayout,
   ForgotPasswordPage,
+  InstructorCourseDetailPage,
   InstructorCoursesPage,
   InstructorDashboard,
   LoginPage,
@@ -18,6 +20,7 @@ import {
   PrivacyPage,
   RegisterPage,
   ResetPasswordPage,
+  StudentCoursesPage,
   StudentDashboard,
   TermsPage,
 } from './lazyPages'
@@ -61,7 +64,10 @@ export const router = createBrowserRouter([
                 path: '/student',
                 element: <RoleRoute allow={['student']} />,
                 errorElement: <RouteError inLayout />,
-                children: [{ index: true, element: <StudentDashboard /> }],
+                children: [
+                  { index: true, element: <StudentDashboard /> },
+                  { path: 'courses', element: <StudentCoursesPage /> },
+                ],
               },
               {
                 path: '/instructor',
@@ -70,6 +76,7 @@ export const router = createBrowserRouter([
                 children: [
                   { index: true, element: <InstructorDashboard /> },
                   { path: 'courses', element: <InstructorCoursesPage /> },
+                  { path: 'courses/:courseId', element: <InstructorCourseDetailPage /> },
                 ],
               },
               {
@@ -85,6 +92,7 @@ export const router = createBrowserRouter([
                 children: [
                   { index: true, element: <AdminDashboard /> },
                   { path: 'users', element: <AdminUsersPage /> },
+                  { path: 'courses', element: <AdminCoursesPage /> },
                   { path: 'activity', element: <AdminActivityPage /> },
                 ],
               },

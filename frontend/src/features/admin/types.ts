@@ -19,6 +19,25 @@ export type Paginated<T> = T & {
 
 export type ListUsersResponse = Paginated<{ users: User[] }>
 
+// One row of the Admin → Courses table.
+export interface AdminCourse {
+  id: string
+  title: string
+  code: string
+  status: 'active' | 'archived'
+  archivedByAdmin: boolean
+  instructor: { id: string; name: string; email: string } | null
+  studentCount: number
+  createdAt: string
+}
+
+export interface ListCoursesParams {
+  q?: string
+  status?: 'active' | 'archived'
+  page: number
+  pageSize: number
+}
+
 export interface InviteRequest {
   name: string
   email: string
@@ -50,6 +69,11 @@ export type AuditAction =
   | 'user.role_changed'
   | 'user.deactivated'
   | 'user.reactivated'
+  | 'course.created'
+  | 'course.archived'
+  | 'course.restored'
+  | 'course.code_reset'
+  | 'course.student_removed'
 
 // actor/target are filled in by the server; null if that user was deleted.
 type AuditUser = Pick<User, 'name' | 'email' | 'role'> & { _id: string }
@@ -68,6 +92,9 @@ export interface AuditLog {
     to?: Role
     wasInvited?: boolean // deactivation of a pending invite = cancelled
     status?: UserStatus // reactivation: 'active', or back to 'invited'
+    courseId?: string // course events
+    title?: string
+    byAdmin?: boolean
   }
   createdAt: string
 }

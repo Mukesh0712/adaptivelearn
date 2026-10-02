@@ -54,7 +54,13 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton
                     render={<NavLink to={item.to} />}
-                    isActive={pathname === item.to}
+                    // A section stays highlighted on its sub-pages (e.g. a course
+                    // page under My courses). The dashboard (portal home) needs
+                    // an exact match, or it would be highlighted everywhere.
+                    isActive={
+                      pathname === item.to ||
+                      (item.to !== ROLE_HOME[user.role] && pathname.startsWith(`${item.to}/`))
+                    }
                     tooltip={item.title}
                   >
                     <item.icon />

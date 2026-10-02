@@ -1,4 +1,18 @@
-import { Ban, MailCheck, MailPlus, RotateCcw, UserCheck, UserCog, UserPlus, type LucideIcon } from 'lucide-react'
+import {
+  Archive,
+  ArchiveRestore,
+  Ban,
+  BookPlus,
+  KeyRound,
+  MailCheck,
+  MailPlus,
+  RotateCcw,
+  UserCheck,
+  UserCog,
+  UserMinus,
+  UserPlus,
+  type LucideIcon,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { parseApiError } from '@/features/auth/apiError'
@@ -12,6 +26,11 @@ const ICON: Record<AuditAction, LucideIcon> = {
   'user.role_changed': UserCog,
   'user.deactivated': Ban,
   'user.reactivated': RotateCcw,
+  'course.created': BookPlus,
+  'course.archived': Archive,
+  'course.restored': ArchiveRestore,
+  'course.code_reset': KeyRound,
+  'course.student_removed': UserMinus,
 }
 
 // One readable sentence per audit entry. Names come from the snapshot saved
@@ -34,6 +53,16 @@ function describe(log: AuditLog): string {
       return d.wasInvited ? `${actor} cancelled the invite for ${target}` : `${actor} deactivated ${target}`
     case 'user.reactivated':
       return `${actor} reactivated ${target}`
+    case 'course.created':
+      return `${actor} created the course ${d.title ?? ''}`
+    case 'course.archived':
+      return `${actor} archived the course ${d.title ?? ''}`
+    case 'course.restored':
+      return `${actor} restored the course ${d.title ?? ''}`
+    case 'course.code_reset':
+      return `${actor} created a new join code for ${d.title ?? 'a course'}`
+    case 'course.student_removed':
+      return `${actor} removed ${log.target?.name ?? 'a student'} from ${d.title ?? 'a course'}`
   }
 }
 

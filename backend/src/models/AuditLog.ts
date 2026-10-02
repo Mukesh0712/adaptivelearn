@@ -10,6 +10,11 @@ export const AUDIT_ACTIONS = [
   'user.role_changed',
   'user.deactivated',
   'user.reactivated',
+  'course.created',
+  'course.archived',
+  'course.restored',
+  'course.code_reset',
+  'course.student_removed',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
@@ -17,6 +22,8 @@ const auditLogSchema = new Schema(
   {
     actor: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     action: { type: String, enum: AUDIT_ACTIONS, required: true },
+    // The user the action was about (null for course actions: the course is
+    // named in details, since a course isn't a user).
     target: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     // A snapshot of the relevant facts at the time (e.g. the invited name,
     // email and role), so the entry still reads correctly if the user is

@@ -10,7 +10,10 @@ export interface NavItem {
 // Sidebar links per role. Each new feature adds its page here for the roles
 // that may use it.
 export const NAV_ITEMS: Record<Role, NavItem[]> = {
-  student: [{ title: 'Dashboard', to: ROLE_HOME.student, icon: LayoutDashboard }],
+  student: [
+    { title: 'Dashboard', to: ROLE_HOME.student, icon: LayoutDashboard },
+    { title: 'My courses', to: `${ROLE_HOME.student}/courses`, icon: BookOpen },
+  ],
   instructor: [
     { title: 'Dashboard', to: ROLE_HOME.instructor, icon: LayoutDashboard },
     { title: 'My courses', to: `${ROLE_HOME.instructor}/courses`, icon: BookOpen },
@@ -19,6 +22,7 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
   admin: [
     { title: 'Dashboard', to: ROLE_HOME.admin, icon: LayoutDashboard },
     { title: 'Users', to: `${ROLE_HOME.admin}/users`, icon: UsersRound },
+    { title: 'Courses', to: `${ROLE_HOME.admin}/courses`, icon: BookOpen },
     { title: 'Activity', to: `${ROLE_HOME.admin}/activity`, icon: History },
   ],
 }

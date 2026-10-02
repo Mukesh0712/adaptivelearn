@@ -16,6 +16,9 @@ const courseSchema = new Schema(
     joinCode: { type: String, required: true, unique: true },
     // Archived courses are kept (never deleted) but hidden from students.
     status: { type: String, enum: COURSE_STATUSES, default: 'active' },
+    // true when an Admin archived it (e.g. inappropriate content): the
+    // instructor can't restore it themselves, only an Admin can.
+    archivedByAdmin: { type: Boolean, default: false },
   },
   {
     timestamps: true,
