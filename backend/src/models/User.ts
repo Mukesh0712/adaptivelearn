@@ -48,6 +48,11 @@ const userSchema = new Schema(
     role: { type: String, enum: ROLES, required: true, default: 'student' },
     status: { type: String, enum: USER_STATUSES, required: true, default: 'active', index: true },
     lastLoginAt: { type: Date, default: null },
+    // When the password last changed. Access tokens issued before this are
+    // refused (see authenticate), so a stolen session dies with the password.
+    passwordChangedAt: { type: Date, default: null },
+    // Set when an admin erased this person's personal data (DPDP request).
+    erasedAt: { type: Date, default: null },
     // Invites (Phase 2): SHA-256 of the emailed invite token + its expiry, and
     // which Admin sent it, when.
     inviteTokenHash: { type: String, select: false, default: null },

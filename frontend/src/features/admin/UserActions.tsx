@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Ban, CircleCheck, Info, MailPlus, MoreHorizontal, RotateCcw, UserCog, XCircle } from 'lucide-react'
+import { Ban, CircleCheck, Eraser, Info, MailPlus, MoreHorizontal, RotateCcw, UserCog, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { SubmitButton } from '@/components/SubmitButton'
 import {
@@ -28,6 +28,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { FormError } from '@/features/auth/pages/AuthCard'
 import { parseApiError } from '@/features/auth/apiError'
 import type { User } from '@/features/auth/types'
@@ -37,13 +39,14 @@ import {
   useApproveUserMutation,
   useChangeRoleMutation,
   useChangeStatusMutation,
+  useEraseUserMutation,
   useRejectUserMutation,
   useResendInviteMutation,
 } from './adminApi'
 import { InviteResult } from './InviteDialog'
 import { ASSIGNABLE_ROLES, type AssignableRole, type InviteResponse } from './types'
 
-type OpenDialog = 'role' | 'deactivate' | 'resent' | 'reject' | null
+type OpenDialog = 'role' | 'deactivate' | 'resent' | 'reject' | 'erase' | null
 
 // The "⋯" menu at the end of each row in the Users table. Which actions are
 // offered depends on the user's status. (The server enforces the same rules;
@@ -131,10 +134,17 @@ export function UserActions({ user }: { user: User }) {
             </>
           )}
           {user.status === 'deactivated' && (
-            <DropdownMenuItem onClick={() => void reactivate()}>
-              <RotateCcw aria-hidden="true" />
-              Reactivate
-            </DropdownMenuItem>
+            <>
+              <DropdownMenuItem onClick={() => void reactivate()}>
+                <RotateCcw aria-hidden="true" />
+                Reactivate
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => setDialog('erase')}>
+                <Eraser aria-hidden="true" />
+                Erase personal data
+              </DropdownMenuItem>
+            </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -145,6 +155,10 @@ export function UserActions({ user }: { user: User }) {
 
       <Dialog open={dialog === 'resent'} onOpenChange={(open) => !open && close()}>
         <DialogContent className="sm:max-w-md">{resent && <InviteResult result={resent} />}</DialogContent>
+      </Dialog>
+
+      <Dialog open={dialog === 'erase'} onOpenChange={(open) => !open && close()}>
+        <DialogContent>{dialog === 'erase' && <EraseForm user={user} onDone={close} />}</DialogContent>
       </Dialog>
 
       <AlertDialog open={dialog === 'reject'} onOpenChange={(open) => !open && close()}>
@@ -310,5 +324,75 @@ function RejectConfirm({ user, onDone }: { user: User; onDone: () => void }) {
         </SubmitButton>
       </AlertDialogFooter>
     </>
+  )
+}
+
+// "Right to erasure" (DPDP Act). Typing the person's email is a deliberate
+// extra step for something that can't be undone.
+function EraseForm({ user, onDone }: { user: User; onDone: () => void }) {
+  const [erase, { isLoading }] = useEraseUserMutation()
+  const [confirmEmail, setConfirmEmail] = useState('')
+  const [error, setError] = useState('')
+  const matches = confirmEmail.trim().toLowerCase() === user.email
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!matches) {
+      setError("The email doesn't match")
+      return
+    }
+    try {
+      toast.success((await erase({ id: user.id, confirmEmail }).unwrap()).message)
+      onDone()
+    } catch (err) {
+      setError(parseApiError(err).message)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="grid gap-4" noValidate>
+      <DialogHeader>
+        <DialogTitle>Erase personal data of {user.name}?</DialogTitle>
+        <DialogDescription>
+          Their name and email are removed for good, they're taken out of every course, and they disappear from
+          Activity entries. The account stays as an anonymous "Deleted user" so history and counts still add up.
+          This can't be undone.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="grid gap-2">
+        <Label htmlFor="confirm-email">
+          Type <span className="font-mono font-semibold">{user.email}</span> to confirm
+        </Label>
+        <Input
+          id="confirm-email"
+          autoComplete="off"
+          spellCheck={false}
+          value={confirmEmail}
+          onChange={(e) => {
+            setConfirmEmail(e.target.value)
+            setError('')
+          }}
+          aria-invalid={!!error}
+          aria-describedby={error ? 'confirm-email-error' : undefined}
+        />
+        {error && (
+          <p id="confirm-email-error" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+      </div>
+      <DialogFooter>
+        <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+        <SubmitButton
+          variant="destructive"
+          className="sm:w-auto"
+          loading={isLoading}
+          loadingText="Erasing…"
+          disabled={!matches || isLoading}
+        >
+          Erase personal data
+        </SubmitButton>
+      </DialogFooter>
+    </form>
   )
 }

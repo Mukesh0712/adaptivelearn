@@ -9,6 +9,7 @@ export interface User {
   status: UserStatus
   lastLoginAt?: string | null
   invitedAt?: string | null
+  erasedAt?: string | null // personal data erased by an admin
   createdAt: string
   updatedAt: string
 }

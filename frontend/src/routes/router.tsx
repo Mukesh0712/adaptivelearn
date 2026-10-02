@@ -18,6 +18,7 @@ import {
   NotFoundPage,
   ParentDashboard,
   PrivacyPage,
+  ProfilePage,
   RegisterPage,
   ResetPasswordPage,
   StudentCoursesPage,
@@ -85,6 +86,8 @@ export const router = createBrowserRouter([
                 errorElement: <RouteError inLayout />,
                 children: [{ index: true, element: <ParentDashboard /> }],
               },
+              // Every role's own account page (no RoleRoute: all roles may open it).
+              { path: '/profile', element: <ProfilePage />, errorElement: <RouteError inLayout /> },
               {
                 path: '/admin',
                 element: <RoleRoute allow={['admin']} />,

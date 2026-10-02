@@ -25,6 +25,10 @@ const authSlice = createSlice({
       state.accessToken = action.payload.accessToken
       state.status = 'authenticated'
     },
+    // The user's own details changed (e.g. their name on the Profile page).
+    userUpdated(state, action: PayloadAction<User>) {
+      state.user = action.payload
+    },
     loggedOut(state) {
       state.user = null
       state.accessToken = null
@@ -33,5 +37,5 @@ const authSlice = createSlice({
   },
 })
 
-export const { credentialsReceived, loggedOut } = authSlice.actions
+export const { credentialsReceived, userUpdated, loggedOut } = authSlice.actions
 export const authReducer = authSlice.reducer

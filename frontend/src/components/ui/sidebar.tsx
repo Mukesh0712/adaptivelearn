@@ -302,9 +302,12 @@ function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
   )
 }
 
-function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
+// A <div>, not <main>: it wraps the header AND the page, and AppLayout puts
+// the page itself in a <main>. A page must have exactly one <main> (screen
+// readers use it to jump straight to the content).
+function SidebarInset({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <main
+    <div
       data-slot="sidebar-inset"
       className={cn(
         "relative flex w-full flex-1 flex-col bg-background md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2",

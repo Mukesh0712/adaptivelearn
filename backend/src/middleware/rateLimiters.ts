@@ -60,3 +60,14 @@ export const joinCourseLimiter = limiter(
   true,
   (req) => `user:${req.user!.id}`, // runs after authenticate, so req.user is set
 );
+
+// Changing your password needs the current one. Only failed attempts count,
+// per ACCOUNT, so a stolen session can't be used to guess the current
+// password: 5 wrong guesses in 15 minutes and it stops.
+export const changePasswordLimiter = limiter(
+  15,
+  5,
+  'Too many incorrect attempts. Please try again in 15 minutes.',
+  true,
+  (req) => `user:${req.user!.id}`,
+);

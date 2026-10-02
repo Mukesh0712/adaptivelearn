@@ -7,6 +7,7 @@ import {
   ArrowRightLeft,
   CircleCheck,
   CircleX,
+  Eraser,
   KeyRound,
   MailCheck,
   MailPlus,
@@ -33,6 +34,7 @@ const ICON: Record<AuditAction, LucideIcon> = {
   'user.reactivated': RotateCcw,
   'user.approved': CircleCheck,
   'user.rejected': CircleX,
+  'user.erased': Eraser,
   'course.created': BookPlus,
   'course.archived': Archive,
   'course.restored': ArchiveRestore,
@@ -66,6 +68,8 @@ function describe(log: AuditLog): string {
       return `${actor} approved ${target} as ${label(d.role)}`
     case 'user.rejected':
       return `${actor} rejected the sign-up from ${d.name ?? 'someone'} (${label(d.role)})`
+    case 'user.erased':
+      return `${actor} erased the personal data of a ${label(d.role).toLowerCase()} account`
     case 'course.created':
       return d.instructorName
         ? `${actor} created the course ${d.title ?? ''} for ${d.instructorName}`
