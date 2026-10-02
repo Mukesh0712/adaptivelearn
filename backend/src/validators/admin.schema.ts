@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { INVITE_ROLES, ROLES, USER_STATUSES } from '../models/User.js';
+import { ASSIGNABLE_ROLES, INVITE_ROLES, ROLES, USER_STATUSES } from '../models/User.js';
 import { email } from './auth.schema.js';
 
 // GET /api/admin/users?q=&role=&status=&page=&pageSize=
@@ -28,3 +28,19 @@ export type InviteInput = z.infer<typeof inviteSchema>;
 export const auditLogQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(10),
 });
+
+// /api/admin/users/:id : a MongoDB ObjectId (24 hex characters). Checked up
+// front so a malformed id is a clean 404, not a database cast error (500).
+export const userIdParamSchema = z.object({ id: z.string().regex(/^[a-f0-9]{24}$/) });
+
+// PATCH /api/admin/users/:id/role
+export const changeRoleSchema = z.object({
+  role: z.enum(ASSIGNABLE_ROLES, { error: 'Role must be student, parent or instructor' }),
+});
+export type ChangeRoleInput = z.infer<typeof changeRoleSchema>;
+
+// PATCH /api/admin/users/:id/status
+export const changeStatusSchema = z.object({
+  status: z.enum(['active', 'deactivated'], { error: 'Status must be active or deactivated' }),
+});
+export type ChangeStatusInput = z.infer<typeof changeStatusSchema>;

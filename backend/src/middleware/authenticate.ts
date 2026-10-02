@@ -19,8 +19,9 @@ export const authenticate: RequestHandler = async (req, _res, next) => {
   }
 
   let userId: string;
+  let tokenRole: Role;
   try {
-    userId = verifyAccessToken(header.slice('Bearer '.length)).sub;
+    ({ sub: userId, role: tokenRole } = verifyAccessToken(header.slice('Bearer '.length)));
   } catch {
     throw ApiError.unauthorized('Invalid or expired access token');
   }
@@ -32,6 +33,13 @@ export const authenticate: RequestHandler = async (req, _res, next) => {
   // A missing status means an account created before statuses existed: active.
   if (user.status === 'deactivated' || user.status === 'invited') {
     throw ApiError.unauthorized('This account has been deactivated');
+  }
+
+  // An Admin changed this user's role after the token was issued. Refuse it:
+  // the browser would otherwise keep showing the old portal. (The role change
+  // also revoked their session, so they're asked to log in again.)
+  if (user.role !== tokenRole) {
+    throw ApiError.unauthorized('Your account was changed. Please log in again.');
   }
 
   req.user = { id: userId, role: user.role };

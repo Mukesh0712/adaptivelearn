@@ -1,4 +1,4 @@
-import { History, MailCheck, UserCheck, UserPlus, type LucideIcon } from 'lucide-react'
+import { Ban, History, MailCheck, MailPlus, RotateCcw, UserCheck, UserCog, UserPlus, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -9,19 +9,33 @@ import type { AuditAction, AuditLog } from './types'
 
 const ICON: Record<AuditAction, LucideIcon> = {
   'user.invited': UserPlus,
+  'invite.resent': MailPlus,
   'invite.accepted': UserCheck,
+  'user.role_changed': UserCog,
+  'user.deactivated': Ban,
+  'user.reactivated': RotateCcw,
 }
 
 // One readable sentence per audit entry. Names come from the snapshot saved
 // with the entry when the user has since been removed.
 function describe(log: AuditLog): string {
   const actor = log.actor?.name ?? 'Someone'
-  const role = log.details.role ? ROLE_LABEL[log.details.role] : 'user'
+  const d = log.details
+  const target = log.target?.name ?? d.name ?? 'a user'
+  const label = (r?: keyof typeof ROLE_LABEL) => (r ? ROLE_LABEL[r] : 'user')
   switch (log.action) {
     case 'user.invited':
-      return `${actor} invited ${log.target?.name ?? log.details.name ?? 'a user'} as ${role}`
+      return `${actor} invited ${target} as ${label(d.role)}`
+    case 'invite.resent':
+      return `${actor} resent the invite to ${target}`
     case 'invite.accepted':
-      return `${actor} accepted their invite and joined as ${role}`
+      return `${actor} accepted their invite and joined as ${label(d.role)}`
+    case 'user.role_changed':
+      return `${actor} changed ${target}'s role from ${label(d.from)} to ${label(d.to)}`
+    case 'user.deactivated':
+      return d.wasInvited ? `${actor} cancelled the invite for ${target}` : `${actor} deactivated ${target}`
+    case 'user.reactivated':
+      return `${actor} reactivated ${target}`
   }
 }
 
@@ -83,7 +97,7 @@ export function RecentActivity() {
                       <time dateTime={log.createdAt} title={new Date(log.createdAt).toLocaleString('en-IN')}>
                         {timeAgo(log.createdAt)}
                       </time>
-                      {log.action === 'user.invited' && log.details.emailSent === false && ' · email not sent'}
+                      {log.details.emailSent === false && ' · email not sent'}
                     </p>
                   </div>
                 </li>

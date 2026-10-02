@@ -18,6 +18,8 @@ import {
 } from '@/components/ui/table'
 import { useListUsersQuery } from '@/features/admin/adminApi'
 import { InviteDialog } from '@/features/admin/InviteDialog'
+import { UserActions } from '@/features/admin/UserActions'
+import { useAuth } from '@/app/hooks'
 import { RoleBadge, StatusBadge } from '@/features/admin/UserBadges'
 import { parseApiError } from '@/features/auth/apiError'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
@@ -45,6 +47,7 @@ const asStatus = (v: string | null) =>
   (USER_STATUSES as readonly string[]).includes(v ?? '') ? (v as UserStatus) : undefined
 
 export default function UsersPage() {
+  const { user: me } = useAuth()
   // Filters live in the URL (?q=&role=&status=&page=), so reloading, the
   // back button and shared links all keep the same view.
   const [params, setParams] = useSearchParams()
@@ -193,14 +196,17 @@ export default function UsersPage() {
                   <TableHead className="hidden sm:table-cell">Role</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden md:table-cell">Joined</TableHead>
-                  <TableHead className="hidden pr-4 md:table-cell">Last login</TableHead>
+                  <TableHead className="hidden md:table-cell">Last login</TableHead>
+                  <TableHead className="w-px pr-4">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading
                   ? Array.from({ length: 5 }, (_, i) => (
                       <TableRow key={i}>
-                        <TableCell className="pl-4" colSpan={5}>
+                        <TableCell className="pl-4" colSpan={6}>
                           <Skeleton className="h-8 w-full" />
                         </TableCell>
                       </TableRow>
@@ -208,7 +214,12 @@ export default function UsersPage() {
                   : data?.users.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell className="pl-4">
-                          <div className="font-medium">{user.name}</div>
+                          <div className="font-medium">
+                            {user.name}
+                            {user.id === me?.id && (
+                              <span className="ml-1.5 text-xs font-normal text-muted-foreground">(you)</span>
+                            )}
+                          </div>
                           <div className="text-xs text-muted-foreground">{user.email}</div>
                           {/* Phones: role sits under the email instead of its own column. */}
                           <div className="mt-1 sm:hidden">
@@ -222,8 +233,10 @@ export default function UsersPage() {
                           <StatusBadge status={user.status ?? 'active'} />
                         </TableCell>
                         <TableCell className="hidden md:table-cell">{formatDate(user.createdAt)}</TableCell>
-                        <TableCell className="hidden pr-4 md:table-cell">
-                          {formatDate(user.lastLoginAt)}
+                        <TableCell className="hidden md:table-cell">{formatDate(user.lastLoginAt)}</TableCell>
+                        <TableCell className="pr-4 text-right">
+                          {/* Admin accounts (including your own) can't be changed here. */}
+                          {user.role !== 'admin' && user.id !== me?.id && <UserActions user={user} />}
                         </TableCell>
                       </TableRow>
                     ))}
