@@ -225,6 +225,9 @@ export default function UsersPage() {
                             {user.id === me?.id && (
                               <span className="ml-1.5 text-xs font-normal text-muted-foreground">(you)</span>
                             )}
+                            {user.erasedAt && (
+                              <span className="ml-1.5 text-xs font-normal text-muted-foreground">(data erased)</span>
+                            )}
                           </div>
                           <div className="text-xs text-muted-foreground">{user.email}</div>
                           {/* Phones: role sits under the email instead of its own column. */}
@@ -242,7 +245,8 @@ export default function UsersPage() {
                         <TableCell className="hidden md:table-cell">{formatDate(user.lastLoginAt)}</TableCell>
                         <TableCell className="pr-4 text-right">
                           {/* Admin accounts (including your own) can't be changed here. */}
-                          {user.role !== 'admin' && user.id !== me?.id && <UserActions user={user} />}
+                          {/* Admins (including yourself) and erased accounts can't be changed. */}
+                          {user.role !== 'admin' && user.id !== me?.id && !user.erasedAt && <UserActions user={user} />}
                         </TableCell>
                       </TableRow>
                     ))}

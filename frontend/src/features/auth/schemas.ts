@@ -53,6 +53,22 @@ export const acceptInviteSchema = z
   })
   .refine((v) => v.password === v.confirmPassword, passwordsMatch)
 
+export const profileSchema = z.object({
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
+})
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Enter your current password'),
+    password: newPassword,
+    confirmPassword: z.string().min(1, 'Please confirm your new password'),
+  })
+  .refine((v) => v.password === v.confirmPassword, passwordsMatch)
+  .refine((v) => !v.password || v.password !== v.currentPassword, {
+    path: ['password'],
+    message: 'Choose a password different from your current one',
+  })
+
 export type FieldErrors = Record<string, string>
 
 // Runs a schema and returns the first error message per field ({} if valid).

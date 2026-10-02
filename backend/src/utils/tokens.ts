@@ -10,6 +10,7 @@ type ExpiresIn = NonNullable<SignOptions['expiresIn']>;
 export interface AccessTokenPayload {
   sub: string; // user id ("subject" is the standard JWT claim name)
   role: Role;
+  iat?: number; // "issued at" (seconds), added automatically by jwt.sign
 }
 
 export function signAccessToken(payload: AccessTokenPayload): string {
@@ -24,7 +25,7 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
   if (typeof decoded === 'string' || !decoded.sub || !decoded.role) {
     throw new Error('Malformed token payload');
   }
-  return { sub: decoded.sub, role: decoded.role as Role };
+  return { sub: decoded.sub, role: decoded.role as Role, ...(decoded.iat ? { iat: decoded.iat } : {}) };
 }
 
 // Refresh tokens use a DIFFERENT secret, so an access token can never be
@@ -43,12 +44,12 @@ export function signRefreshToken(
   return { token, expiresAt: new Date(exp * 1000) };
 }
 
-export function verifyRefreshToken(token: string): { sub: string; rememberMe: boolean } {
+export function verifyRefreshToken(token: string): { sub: string; rememberMe: boolean; iat: number } {
   const decoded = jwt.verify(token, env.JWT_REFRESH_SECRET);
   if (typeof decoded === 'string' || !decoded.sub) {
     throw new Error('Malformed token payload');
   }
-  return { sub: decoded.sub, rememberMe: decoded.rm === true };
+  return { sub: decoded.sub, rememberMe: decoded.rm === true, iat: decoded.iat ?? 0 };
 }
 
 // Random single-use token for emailed links: password reset and invites

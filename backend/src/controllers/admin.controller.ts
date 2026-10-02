@@ -3,6 +3,8 @@ import type { QueryFilter } from 'mongoose';
 import { env } from '../config/env.js';
 import { UserModel, type User, type UserDocument } from '../models/User.js';
 import { AuditLogModel } from '../models/AuditLog.js';
+import { CourseModel } from '../models/Course.js';
+import { EnrollmentModel } from '../models/Enrollment.js';
 import { parseOrThrow } from '../middleware/validate.js';
 import { ApiError } from '../utils/ApiError.js';
 import { audit } from '../utils/audit.js';
@@ -14,6 +16,7 @@ import {
   listUsersQuerySchema,
   userIdParamSchema,
   type ChangeRoleInput,
+  type EraseUserInput,
   type ChangeStatusInput,
   type InviteInput,
 } from '../validators/admin.schema.js';
@@ -142,6 +145,10 @@ async function manageableUser(req: Request, selectPassword = false): Promise<Use
   const user = await query;
   if (!user) throw ApiError.notFound('User not found');
   if (user.role === 'admin') throw ApiError.forbidden("Admin accounts can't be changed here");
+  // An erased account is kept only as an anonymous record: nothing more to do with it.
+  if (user.erasedAt && !req.path.endsWith('/erase')) {
+    throw ApiError.conflict("This person's data was erased; the account can't be changed");
+  }
   return user;
 }
 
@@ -292,6 +299,64 @@ export async function rejectUser(req: Request, res: Response) {
   if (!removed) throw changedMeanwhile();
   await audit(req.user!.id, 'user.rejected', null, { name: removed.name, email: removed.email, role: removed.role });
   res.json({ message: `Sign-up from ${removed.name} rejected` });
+}
+
+// POST /api/admin/users/:id/erase : "right to erasure" (India's DPDP Act).
+// The person's identifying data is removed, but the account record stays as
+// "Deleted user" so history and counts don't break. Rules:
+//  - only an already DEACTIVATED account (deactivate first: two deliberate steps);
+//  - the admin must type the person's email to confirm;
+//  - an instructor must have no active courses (reassign or archive them
+//    first), so no course is left without an instructor.
+export async function eraseUser(req: Request, res: Response) {
+  const { confirmEmail } = req.body as EraseUserInput;
+  const user = await manageableUser(req);
+  if (user.erasedAt) throw ApiError.conflict('This person\'s data has already been erased');
+  if (user.status !== 'deactivated') throw ApiError.conflict('Deactivate this account first, then erase its data');
+  if (confirmEmail !== user.email) {
+    throw ApiError.badRequest("The email doesn't match", { confirmEmail: ["The email doesn't match"] });
+  }
+  if (user.role === 'instructor') {
+    const active = await CourseModel.countDocuments({ instructor: user._id, status: 'active' });
+    if (active > 0) {
+      throw ApiError.conflict(
+        `${user.name} still teaches ${active} active course${active === 1 ? '' : 's'}. Reassign or archive ${active === 1 ? 'it' : 'them'} first.`,
+      );
+    }
+  }
+
+  const originalEmail = user.email;
+  const originalName = user.name;
+  await Promise.all([
+    UserModel.updateOne(
+      { _id: user._id },
+      {
+        name: 'Deleted user',
+        // Unique placeholder (the email index is unique). .invalid is a
+        // reserved domain, so nothing can ever be sent to it.
+        email: `erased-${user.id}@deleted.invalid`,
+        password: null,
+        refreshTokenHash: null,
+        resetPasswordTokenHash: null,
+        resetPasswordExpiresAt: null,
+        inviteTokenHash: null,
+        inviteExpiresAt: null,
+        termsAcceptedAt: null,
+        lastLoginAt: null,
+        erasedAt: new Date(),
+      },
+    ),
+    // No longer a member of any course.
+    EnrollmentModel.deleteMany({ student: user._id }),
+    // Scrub their name/email from earlier Activity entries too.
+    AuditLogModel.updateMany(
+      { $or: [{ target: user._id }, { 'details.email': originalEmail }] },
+      { $set: { 'details.name': 'Deleted user' }, $unset: { 'details.email': '' } },
+    ),
+  ]);
+  // This entry itself holds no personal data.
+  await audit(req.user!.id, 'user.erased', user._id, { role: user.role });
+  res.json({ message: `Personal data of ${originalName} erased` });
 }
 
 // Audit entries, newest first, one page at a time. Used by the dashboard's

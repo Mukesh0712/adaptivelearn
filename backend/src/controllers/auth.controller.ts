@@ -131,7 +131,7 @@ export async function refresh(req: Request, res: Response) {
     return;
   }
 
-  let payload: { sub: string; rememberMe: boolean };
+  let payload: { sub: string; rememberMe: boolean; iat: number };
   try {
     payload = verifyRefreshToken(token);
   } catch {
@@ -147,9 +147,19 @@ export async function refresh(req: Request, res: Response) {
   );
 
   if (!user) {
-    // Validly signed but not the current token → an old token is being
-    // replayed, possibly stolen (or the account was deactivated meanwhile). Kill the session so the thief is locked out
-    // too (the real user just has to log in again).
+    // A token issued before the last password change was ended BY that
+    // change (e.g. "log out other devices"): just refuse it. Treating it as
+    // stolen below would also log out the device that changed the password.
+    const owner = await UserModel.findById(payload.sub).select('passwordChangedAt');
+    const changedAt = owner?.passwordChangedAt?.getTime();
+    if (changedAt && payload.iat < Math.floor(changedAt / 1000)) {
+      clearRefreshCookie(res);
+      throw ApiError.unauthorized('Your password was changed. Please log in again.');
+    }
+    // Otherwise: validly signed but not the current token → an old token is
+    // being replayed, possibly stolen (or the account was deactivated
+    // meanwhile). Kill the session so the thief is locked out too (the real
+    // user just has to log in again).
     await UserModel.updateOne({ _id: payload.sub }, { refreshTokenHash: null });
     clearRefreshCookie(res);
     throw ApiError.unauthorized('Refresh token has been revoked');
@@ -222,6 +232,7 @@ export async function resetPassword(req: Request, res: Response) {
     },
     {
       password: await hashPassword(password),
+      passwordChangedAt: new Date(), // also kills access tokens issued before now
       resetPasswordTokenHash: null,
       resetPasswordExpiresAt: null,
       refreshTokenHash: null,

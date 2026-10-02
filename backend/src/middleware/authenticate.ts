@@ -20,15 +20,16 @@ export const authenticate: RequestHandler = async (req, _res, next) => {
 
   let userId: string;
   let tokenRole: Role;
+  let issuedAt: number | undefined;
   try {
-    ({ sub: userId, role: tokenRole } = verifyAccessToken(header.slice('Bearer '.length)));
+    ({ sub: userId, role: tokenRole, iat: issuedAt } = verifyAccessToken(header.slice('Bearer '.length)));
   } catch {
     throw ApiError.unauthorized('Invalid or expired access token');
   }
 
   const user = await UserModel.findById(userId)
-    .select('role status')
-    .lean<{ role: Role; status?: UserStatus }>();
+    .select('role status passwordChangedAt')
+    .lean<{ role: Role; status?: UserStatus; passwordChangedAt?: Date | null }>();
   if (!user) throw ApiError.unauthorized('User no longer exists');
   // Only active accounts get in. (A missing status means an account created
   // before statuses existed: active.) Pending, invited and deactivated
@@ -42,6 +43,13 @@ export const authenticate: RequestHandler = async (req, _res, next) => {
   // also revoked their session, so they're asked to log in again.)
   if (user.role !== tokenRole) {
     throw ApiError.unauthorized('Your account was changed. Please log in again.');
+  }
+
+  // The password changed after this token was issued (e.g. the owner changed
+  // it because the account was compromised): the old token no longer works.
+  // iat is in whole seconds, so compare at that precision.
+  if (user.passwordChangedAt && (issuedAt ?? 0) < Math.floor(user.passwordChangedAt.getTime() / 1000)) {
+    throw ApiError.unauthorized('Your password was changed. Please log in again.');
   }
 
   req.user = { id: userId, role: user.role };

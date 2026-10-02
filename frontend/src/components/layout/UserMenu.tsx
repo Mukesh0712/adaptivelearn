@@ -1,4 +1,5 @@
-import { LogOut } from 'lucide-react'
+import { Link } from 'react-router'
+import { LogOut, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/app/hooks'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -49,6 +50,11 @@ export function UserMenu() {
             <div className="text-xs">{ROLE_LABEL[user.role]}</div>
           </DropdownMenuLabel>
         </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem render={<Link to="/profile" />}>
+          <UserRound />
+          Profile
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"

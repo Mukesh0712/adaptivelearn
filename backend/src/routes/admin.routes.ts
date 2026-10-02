@@ -4,6 +4,7 @@ import { authorize } from '../middleware/authorize.js';
 import {
   approveUser,
   changeRole,
+  eraseUser,
   changeStatus,
   createInvite,
   listAuditLogs,
@@ -23,6 +24,7 @@ import {
   adminCreateCourseSchema,
   changeRoleSchema,
   changeStatusSchema,
+  eraseUserSchema,
   inviteSchema,
   reassignCourseSchema,
 } from '../validators/admin.schema.js';
@@ -38,6 +40,7 @@ adminRouter.get('/audit-logs', listAuditLogs);
 adminRouter.post('/users/:id/resend-invite', resendInvite);
 adminRouter.post('/users/:id/approve', approveUser);
 adminRouter.post('/users/:id/reject', rejectUser);
+adminRouter.post('/users/:id/erase', validate(eraseUserSchema), eraseUser);
 adminRouter.patch('/users/:id/role', validate(changeRoleSchema), changeRole);
 adminRouter.patch('/users/:id/status', validate(changeStatusSchema), changeStatus);
 adminRouter.get('/courses', listAllCourses);

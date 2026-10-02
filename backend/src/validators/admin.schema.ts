@@ -66,3 +66,10 @@ export type AdminCreateCourseInput = z.infer<typeof adminCreateCourseSchema>;
 // PATCH /api/admin/courses/:id/instructor : move a course to another instructor.
 export const reassignCourseSchema = z.object({ instructorId: objectId });
 export type ReassignCourseInput = z.infer<typeof reassignCourseSchema>;
+
+// POST /api/admin/users/:id/erase : the admin types the person's email to
+// confirm (a deliberate step for something that can't be undone).
+export const eraseUserSchema = z.object({
+  confirmEmail: z.string({ error: "Type the person's email to confirm" }).trim().toLowerCase(),
+});
+export type EraseUserInput = z.infer<typeof eraseUserSchema>;

@@ -32,6 +32,10 @@ export const adminApi = baseApi.injectEndpoints({
       query: (id) => ({ url: `/admin/users/${id}/reject`, method: 'POST' }),
       invalidatesTags: ['Users', 'AuditLogs'],
     }),
+    eraseUser: build.mutation<{ message: string }, { id: string; confirmEmail: string }>({
+      query: ({ id, confirmEmail }) => ({ url: `/admin/users/${id}/erase`, method: 'POST', body: { confirmEmail } }),
+      invalidatesTags: ['Users', 'AuditLogs', 'Courses'],
+    }),
     resendInvite: build.mutation<InviteResponse, string>({
       query: (id) => ({ url: `/admin/users/${id}/resend-invite`, method: 'POST' }),
       invalidatesTags: ['Users', 'AuditLogs'],
@@ -76,6 +80,7 @@ export const {
   useResendInviteMutation,
   useApproveUserMutation,
   useRejectUserMutation,
+  useEraseUserMutation,
   useChangeRoleMutation,
   useChangeStatusMutation,
   useListAuditLogsQuery,

@@ -72,6 +72,7 @@ export type AuditAction =
   | 'user.reactivated'
   | 'user.approved'
   | 'user.rejected'
+  | 'user.erased'
   | 'course.created'
   | 'course.archived'
   | 'course.restored'
