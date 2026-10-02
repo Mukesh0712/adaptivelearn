@@ -14,6 +14,12 @@ function Toaster(props: ToasterProps) {
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",
           "--border-radius": "var(--radius)",
+          // Darker text than sonner's defaults, so coloured toasts meet the
+          // WCAG AA contrast ratio (4.5:1) on their pale backgrounds.
+          "--success-text": "#006620",
+          "--error-text": "#b4000a",
+          "--info-text": "#0b5394",
+          "--warning-text": "#8a4b00",
         } as React.CSSProperties
       }
       {...props}
