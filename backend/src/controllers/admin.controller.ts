@@ -7,7 +7,7 @@ import { parseOrThrow } from '../middleware/validate.js';
 import { ApiError } from '../utils/ApiError.js';
 import { audit } from '../utils/audit.js';
 import { escapeRegex } from '../utils/regex.js';
-import { sendInviteEmail } from '../utils/mailer.js';
+import { sendApprovalEmail, sendInviteEmail } from '../utils/mailer.js';
 import { generateLinkToken, hashToken } from '../utils/tokens.js';
 import {
   auditLogQuerySchema,
@@ -103,7 +103,9 @@ export async function createInvite(req: Request, res: Response) {
     throw ApiError.conflict(
       existing.status === 'invited'
         ? 'This person has already been invited. Use "Resend invite" in the Users list.'
-        : 'An account with this email already exists',
+        : existing.status === 'pending'
+          ? 'This person already signed up and is waiting for approval. Approve them in the Users list.'
+          : 'An account with this email already exists',
     );
   }
 
@@ -183,6 +185,9 @@ export async function changeRole(req: Request, res: Response) {
   if (user.status === 'invited') {
     throw ApiError.conflict("This person hasn't accepted their invite yet, so their role can't be changed");
   }
+  if (user.status === 'pending') {
+    throw ApiError.conflict('Approve or reject this sign-up first');
+  }
   if (user.role === role) throw ApiError.badRequest(`${user.name} is already ${capitalize(role)}`);
 
   const from = user.role;
@@ -204,6 +209,7 @@ export async function changeRole(req: Request, res: Response) {
 export async function changeStatus(req: Request, res: Response) {
   const { status } = req.body as ChangeStatusInput;
   const user = await manageableUser(req, true);
+  if (user.status === 'pending') throw ApiError.conflict('Approve or reject this sign-up first');
 
   if (status === 'deactivated') {
     if (user.status === 'deactivated') throw ApiError.conflict(`${user.name} is already deactivated`);
@@ -244,6 +250,48 @@ export async function changeStatus(req: Request, res: Response) {
         ? `${updated.name} has been reactivated and can log in again`
         : `${updated.name} is back to "invited". Use "Resend invite" to send them a new link.`,
   });
+}
+
+// POST /api/admin/users/:id/approve : a pending sign-up becomes active and
+// gets an email saying they can log in.
+export async function approveUser(req: Request, res: Response) {
+  const user = await manageableUser(req);
+  if (user.status !== 'pending') throw ApiError.conflict(`${user.name} is not waiting for approval`);
+
+  const updated = await UserModel.findOneAndUpdate(
+    { _id: user._id, status: 'pending' },
+    { status: 'active' },
+    { returnDocument: 'after' },
+  );
+  if (!updated) throw changedMeanwhile();
+
+  let emailSent = true;
+  try {
+    await sendApprovalEmail(updated.email, updated.name, `${env.CLIENT_ORIGIN}/login`);
+  } catch (err) {
+    emailSent = false;
+    console.error(`Email: FAILED to send approval to ${updated.email}:`, err instanceof Error ? err.message : err);
+  }
+  await audit(req.user!.id, 'user.approved', updated._id, { name: updated.name, role: updated.role, emailSent });
+  res.json({
+    user: updated.toJSON(),
+    message: emailSent
+      ? `${updated.name} approved. We emailed them that they can log in.`
+      : `${updated.name} approved, but the email could not be sent. Let them know they can log in.`,
+  });
+}
+
+// POST /api/admin/users/:id/reject : removes a pending sign-up. It has no
+// data yet (it never logged in), so nothing else is affected; the audit log
+// keeps a record. If it was a mistake, the person can simply register again.
+export async function rejectUser(req: Request, res: Response) {
+  const user = await manageableUser(req);
+  if (user.status !== 'pending') throw ApiError.conflict(`${user.name} is not waiting for approval`);
+
+  const removed = await UserModel.findOneAndDelete({ _id: user._id, status: 'pending' });
+  if (!removed) throw changedMeanwhile();
+  await audit(req.user!.id, 'user.rejected', null, { name: removed.name, email: removed.email, role: removed.role });
+  res.json({ message: `Sign-up from ${removed.name} rejected` });
 }
 
 // Audit entries, newest first, one page at a time. Used by the dashboard's

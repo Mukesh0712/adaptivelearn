@@ -19,8 +19,16 @@ export const authApi = baseApi.injectEndpoints({
     login: build.mutation<AuthResponse, LoginRequest>({
       query: (body) => ({ url: '/auth/login', method: 'POST', body }),
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
-        const { data } = await queryFulfilled
-        dispatch(credentialsReceived(data))
+        // queryFulfilled rejects when login fails (wrong password, pending,
+        // deactivated…). The login form shows that error itself via
+        // .unwrap(); without this catch the rejection would ALSO surface as
+        // an uncaught error in the browser.
+        try {
+          const { data } = await queryFulfilled
+          dispatch(credentialsReceived(data))
+        } catch {
+          // handled by the form
+        }
       },
     }),
     logout: build.mutation<void, void>({

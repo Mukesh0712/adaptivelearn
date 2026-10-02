@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Ban, Info, MailPlus, MoreHorizontal, RotateCcw, UserCog, XCircle } from 'lucide-react'
+import { Ban, CircleCheck, Info, MailPlus, MoreHorizontal, RotateCcw, UserCog, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { SubmitButton } from '@/components/SubmitButton'
 import {
@@ -33,11 +33,17 @@ import { parseApiError } from '@/features/auth/apiError'
 import type { User } from '@/features/auth/types'
 import { ROLE_LABEL } from '@/lib/roles'
 import { cn } from '@/lib/utils'
-import { useChangeRoleMutation, useChangeStatusMutation, useResendInviteMutation } from './adminApi'
+import {
+  useApproveUserMutation,
+  useChangeRoleMutation,
+  useChangeStatusMutation,
+  useRejectUserMutation,
+  useResendInviteMutation,
+} from './adminApi'
 import { InviteResult } from './InviteDialog'
 import { ASSIGNABLE_ROLES, type AssignableRole, type InviteResponse } from './types'
 
-type OpenDialog = 'role' | 'deactivate' | 'resent' | null
+type OpenDialog = 'role' | 'deactivate' | 'resent' | 'reject' | null
 
 // The "⋯" menu at the end of each row in the Users table. Which actions are
 // offered depends on the user's status. (The server enforces the same rules;
@@ -47,7 +53,16 @@ export function UserActions({ user }: { user: User }) {
   const [resent, setResent] = useState<InviteResponse | null>(null)
   const [resendInvite] = useResendInviteMutation()
   const [changeStatus] = useChangeStatusMutation()
+  const [approveUser] = useApproveUserMutation()
   const close = () => setDialog(null)
+
+  const approve = async () => {
+    try {
+      toast.success((await approveUser(user.id).unwrap()).message)
+    } catch (err) {
+      toast.error(parseApiError(err).message)
+    }
+  }
 
   const resend = async () => {
     try {
@@ -76,6 +91,19 @@ export function UserActions({ user }: { user: User }) {
           <MoreHorizontal aria-hidden="true" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
+          {user.status === 'pending' && (
+            <>
+              <DropdownMenuItem onClick={() => void approve()}>
+                <CircleCheck aria-hidden="true" />
+                Approve
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => setDialog('reject')}>
+                <XCircle aria-hidden="true" />
+                Reject
+              </DropdownMenuItem>
+            </>
+          )}
           {user.status === 'invited' && (
             <>
               <DropdownMenuItem onClick={() => void resend()}>
@@ -118,6 +146,10 @@ export function UserActions({ user }: { user: User }) {
       <Dialog open={dialog === 'resent'} onOpenChange={(open) => !open && close()}>
         <DialogContent className="sm:max-w-md">{resent && <InviteResult result={resent} />}</DialogContent>
       </Dialog>
+
+      <AlertDialog open={dialog === 'reject'} onOpenChange={(open) => !open && close()}>
+        <AlertDialogContent>{dialog === 'reject' && <RejectConfirm user={user} onDone={close} />}</AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={dialog === 'deactivate'} onOpenChange={(open) => !open && close()}>
         <AlertDialogContent>
@@ -236,6 +268,45 @@ function DeactivateConfirm({ user, onDone }: { user: User; onDone: () => void })
           onClick={() => void confirm()}
         >
           {isInvite ? 'Cancel invite' : 'Deactivate'}
+        </SubmitButton>
+      </AlertDialogFooter>
+    </>
+  )
+}
+
+function RejectConfirm({ user, onDone }: { user: User; onDone: () => void }) {
+  const [rejectUser, { isLoading }] = useRejectUserMutation()
+  const [error, setError] = useState('')
+
+  const confirm = async () => {
+    try {
+      toast.success((await rejectUser(user.id).unwrap()).message)
+      onDone()
+    } catch (err) {
+      setError(parseApiError(err).message)
+    }
+  }
+
+  return (
+    <>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Reject sign-up from {user.name}?</AlertDialogTitle>
+        <AlertDialogDescription>
+          Their pending account is removed and they can't log in. If this was a mistake, they can register again.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <FormError message={error} />
+      <AlertDialogFooter>
+        <AlertDialogCancel>Keep</AlertDialogCancel>
+        <SubmitButton
+          type="button"
+          variant="destructive"
+          className="sm:w-auto"
+          loading={isLoading}
+          loadingText="Rejecting…"
+          onClick={() => void confirm()}
+        >
+          Reject
         </SubmitButton>
       </AlertDialogFooter>
     </>

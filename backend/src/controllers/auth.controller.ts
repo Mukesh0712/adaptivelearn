@@ -36,7 +36,7 @@ interface NewRefresh {
 
 // Statuses that may hold a session. $nin also matches accounts with no status
 // saved (created before statuses existed), which count as active.
-const CAN_SIGN_IN: { $nin: UserStatus[] } = { $nin: ['invited', 'deactivated'] };
+const CAN_SIGN_IN: { $nin: UserStatus[] } = { $nin: ['pending', 'invited', 'deactivated'] };
 
 function newRefreshToken(userId: string, rememberMe: boolean): NewRefresh {
   const { token, expiresAt } = signRefreshToken(userId, rememberMe);
@@ -59,10 +59,10 @@ function sendSession(
   });
 }
 
-// Creates the account only; it does NOT log the user in. The user is sent to
-// the login page and signs in there (which is also where the browser offers
-// to save the password). 1 DB round trip: a duplicate email is rejected by
-// the unique index (→ 409 in errorHandler), so no separate "exists?" query.
+// Creates the account as "pending": it can't be used until an Admin approves
+// it (the Admin controls who gets into the platform). 1 DB round trip: a
+// duplicate email is rejected by the unique index (→ 409 in errorHandler).
+// The response doesn't include the user: there is nothing to do with it yet.
 export async function register(req: Request, res: Response) {
   const { name, email, password, role } = req.body as RegisterInput;
 
@@ -71,12 +71,14 @@ export async function register(req: Request, res: Response) {
     email,
     password: await hashPassword(password),
     role,
+    status: 'pending',
     termsAcceptedAt: new Date(),
   });
 
+  if (!isProduction) console.log(`Registration: ${user.email} (${user.role}) is waiting for approval`);
   res.status(201).json({
-    user: user.toJSON(),
-    message: 'Account created. Please log in.',
+    pending: true,
+    message: "Thanks! Your account was created and is waiting for an administrator's approval. We'll email you as soon as it's approved.",
   });
 }
 
@@ -98,6 +100,11 @@ export async function login(req: Request, res: Response) {
   // which emails belong to deactivated accounts.
   if (user.status === 'deactivated') {
     throw ApiError.forbidden('This account has been deactivated. Please contact your administrator.');
+  }
+  if (user.status === 'pending') {
+    throw ApiError.forbidden(
+      "Your account is waiting for an administrator's approval. We'll email you as soon as it's approved.",
+    );
   }
 
   const refresh = newRefreshToken(user.id, rememberMe);

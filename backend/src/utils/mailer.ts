@@ -152,3 +152,19 @@ export async function sendInviteEmail(
   });
   console.log(`Email: invite sent to ${to}`);
 }
+
+export async function sendApprovalEmail(to: string, name: string, loginLink: string) {
+  await sendEmail({
+    to,
+    toName: name,
+    subject: 'Your AdaptiveLearn account is approved',
+    text:
+      `Hi ${name},\n\nGood news: an administrator approved your AdaptiveLearn account.\n` +
+      `You can log in now:\n\n${loginLink}\n`,
+    html:
+      `<p>Hi ${escapeHtml(name)},</p>` +
+      `<p>Good news: an administrator approved your AdaptiveLearn account.</p>` +
+      `<p><a href="${loginLink}">Log in to AdaptiveLearn</a></p>`,
+  });
+  console.log(`Email: approval sent to ${to}`);
+}

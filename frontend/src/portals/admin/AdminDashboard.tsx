@@ -4,6 +4,7 @@ import { useAuth } from '@/app/hooks'
 import { PageMeta } from '@/components/PageMeta'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { PendingBanner } from '@/features/admin/PendingBanner'
 import { RecentActivity } from '@/features/admin/RecentActivity'
 
 export default function AdminDashboard() {
@@ -17,6 +18,8 @@ export default function AdminDashboard() {
         <p className="text-muted-foreground">Welcome, {user?.name}.</p>
       </div>
 
+      <PendingBanner />
+
       <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
         <Card className="self-start">
           <CardHeader>
@@ -24,7 +27,7 @@ export default function AdminDashboard() {
               <UsersRound className="size-4" aria-hidden="true" />
               Users
             </CardTitle>
-            <CardDescription>See every account and invite instructors.</CardDescription>
+            <CardDescription>See every account, approve sign-ups and invite people.</CardDescription>
             <Button variant="outline" className="mt-2 w-fit" nativeButton={false} render={<Link to="/admin/users" />}>
               Manage users
               <ArrowRight aria-hidden="true" />

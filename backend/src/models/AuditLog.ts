@@ -10,6 +10,8 @@ export const AUDIT_ACTIONS = [
   'user.role_changed',
   'user.deactivated',
   'user.reactivated',
+  'user.approved',
+  'user.rejected',
   'course.created',
   'course.archived',
   'course.restored',

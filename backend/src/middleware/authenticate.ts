@@ -30,9 +30,11 @@ export const authenticate: RequestHandler = async (req, _res, next) => {
     .select('role status')
     .lean<{ role: Role; status?: UserStatus }>();
   if (!user) throw ApiError.unauthorized('User no longer exists');
-  // A missing status means an account created before statuses existed: active.
-  if (user.status === 'deactivated' || user.status === 'invited') {
-    throw ApiError.unauthorized('This account has been deactivated');
+  // Only active accounts get in. (A missing status means an account created
+  // before statuses existed: active.) Pending, invited and deactivated
+  // accounts are all refused.
+  if (user.status && user.status !== 'active') {
+    throw ApiError.unauthorized('This account is not active');
   }
 
   // An Admin changed this user's role after the token was issued. Refuse it:
