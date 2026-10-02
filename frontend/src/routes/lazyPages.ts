@@ -10,6 +10,7 @@ export const ResetPasswordPage = lazy(() => import('@/features/auth/pages/ResetP
 export const AcceptInvitePage = lazy(() => import('@/features/auth/pages/AcceptInvitePage'))
 export const StudentDashboard = lazy(() => import('@/portals/student/StudentDashboard'))
 export const InstructorDashboard = lazy(() => import('@/portals/instructor/InstructorDashboard'))
+export const InstructorCoursesPage = lazy(() => import('@/portals/instructor/CoursesPage'))
 export const ParentDashboard = lazy(() => import('@/portals/parent/ParentDashboard'))
 export const AdminDashboard = lazy(() => import('@/portals/admin/AdminDashboard'))
 export const AdminUsersPage = lazy(() => import('@/portals/admin/UsersPage'))

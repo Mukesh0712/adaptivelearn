@@ -1,4 +1,4 @@
-import { History, LayoutDashboard, UsersRound, type LucideIcon } from 'lucide-react'
+import { BookOpen, History, LayoutDashboard, UsersRound, type LucideIcon } from 'lucide-react'
 import { ROLE_HOME, type Role } from '@/lib/roles'
 
 export interface NavItem {
@@ -11,7 +11,10 @@ export interface NavItem {
 // that may use it.
 export const NAV_ITEMS: Record<Role, NavItem[]> = {
   student: [{ title: 'Dashboard', to: ROLE_HOME.student, icon: LayoutDashboard }],
-  instructor: [{ title: 'Dashboard', to: ROLE_HOME.instructor, icon: LayoutDashboard }],
+  instructor: [
+    { title: 'Dashboard', to: ROLE_HOME.instructor, icon: LayoutDashboard },
+    { title: 'My courses', to: `${ROLE_HOME.instructor}/courses`, icon: BookOpen },
+  ],
   parent: [{ title: 'Dashboard', to: ROLE_HOME.parent, icon: LayoutDashboard }],
   admin: [
     { title: 'Dashboard', to: ROLE_HOME.admin, icon: LayoutDashboard },
