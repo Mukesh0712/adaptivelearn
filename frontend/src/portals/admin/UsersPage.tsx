@@ -39,7 +39,11 @@ const STATUS_ITEMS = [
 ]
 
 const dateFormat = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' })
-const formatDate = (iso?: string | null) => (iso ? dateFormat.format(new Date(iso)) : 'Never')
+// Formatting an invalid date throws, so check it first.
+const formatDate = (iso?: string | null) => {
+  const date = iso ? new Date(iso) : null
+  return date && !Number.isNaN(date.getTime()) ? dateFormat.format(date) : 'Never'
+}
 
 // Values from the URL can be anything a user typed, so only accept known ones.
 const asRole = (v: string | null) => (ROLES as readonly string[]).includes(v ?? '') ? (v as Role) : undefined

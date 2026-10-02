@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { createBrowserRouter, Outlet } from 'react-router'
 import { FullPageLoader } from '@/components/FullPageLoader'
+import { RouteError } from '@/components/RouteError'
 import { GuestRoute, HomeRedirect, ProtectedRoute, RoleRoute } from './guards'
 import {
   AcceptInvitePage,
@@ -30,6 +31,8 @@ export const router = createBrowserRouter([
         <Outlet />
       </Suspense>
     ),
+    // Any error not caught lower down: full-screen friendly error page.
+    errorElement: <RouteError />,
     children: [
       {
         element: <GuestRoute />,
@@ -55,21 +58,25 @@ export const router = createBrowserRouter([
               {
                 path: '/student',
                 element: <RoleRoute allow={['student']} />,
+                errorElement: <RouteError inLayout />,
                 children: [{ index: true, element: <StudentDashboard /> }],
               },
               {
                 path: '/instructor',
                 element: <RoleRoute allow={['instructor']} />,
+                errorElement: <RouteError inLayout />,
                 children: [{ index: true, element: <InstructorDashboard /> }],
               },
               {
                 path: '/parent',
                 element: <RoleRoute allow={['parent']} />,
+                errorElement: <RouteError inLayout />,
                 children: [{ index: true, element: <ParentDashboard /> }],
               },
               {
                 path: '/admin',
                 element: <RoleRoute allow={['admin']} />,
+                errorElement: <RouteError inLayout />,
                 children: [
                   { index: true, element: <AdminDashboard /> },
                   { path: 'users', element: <AdminUsersPage /> },
