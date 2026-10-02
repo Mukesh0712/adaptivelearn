@@ -62,7 +62,10 @@ function SelectContent({
   sideOffset = 4,
   align = "center",
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  // false: the list always opens BELOW the field, like a normal dropdown.
+  // (true positions it over the field so the selected item lines up with
+  // it, macOS-style, which looked like a stray box covering the field.)
+  alignItemWithTrigger = false,
   ...props
 }: SelectPrimitive.Popup.Props &
   Pick<

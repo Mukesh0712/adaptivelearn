@@ -48,6 +48,10 @@ export const coursesApi = baseApi.injectEndpoints({
       query: (id) => ({ url: `/courses/${id}/enrollment`, method: 'DELETE' }),
       invalidatesTags: ['Courses'],
     }),
+    deleteCourse: build.mutation<{ message: string }, string>({
+      query: (id) => ({ url: `/courses/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Courses', 'AuditLogs'],
+    }),
     setCourseStatus: build.mutation<CourseResponse, { id: string; status: CourseStatus }>({
       query: ({ id, status }) => ({ url: `/courses/${id}/status`, method: 'PATCH', body: { status } }),
       invalidatesTags: ['Courses', 'AuditLogs'],
@@ -67,4 +71,5 @@ export const {
   useEnrolledCoursesQuery,
   useJoinCourseMutation,
   useLeaveCourseMutation,
+  useDeleteCourseMutation,
 } = coursesApi

@@ -52,6 +52,17 @@ export const adminApi = baseApi.injectEndpoints({
       query: ({ id, status }) => ({ url: `/admin/courses/${id}/status`, method: 'PATCH', body: { status } }),
       invalidatesTags: ['Courses', 'AuditLogs'],
     }),
+    adminCreateCourse: build.mutation<
+      { message: string; course: { id: string } },
+      { title: string; code: string; description: string; instructorId: string }
+    >({
+      query: (body) => ({ url: '/admin/courses', method: 'POST', body }),
+      invalidatesTags: ['Courses', 'AuditLogs'],
+    }),
+    reassignCourse: build.mutation<{ message: string }, { id: string; instructorId: string }>({
+      query: ({ id, instructorId }) => ({ url: `/admin/courses/${id}/instructor`, method: 'PATCH', body: { instructorId } }),
+      invalidatesTags: ['Courses', 'AuditLogs'],
+    }),
     listAuditLogs: build.query<Paginated<{ logs: AuditLog[] }>, { page: number; pageSize: number }>({
       query: (params) => ({ url: '/admin/audit-logs', params }),
       providesTags: ['AuditLogs'],
@@ -70,4 +81,6 @@ export const {
   useListAuditLogsQuery,
   useListCoursesQuery,
   useSetAnyCourseStatusMutation,
+  useAdminCreateCourseMutation,
+  useReassignCourseMutation,
 } = adminApi

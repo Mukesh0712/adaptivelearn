@@ -5,6 +5,7 @@ import { validate } from '../middleware/validate.js';
 import { joinCourseLimiter } from '../middleware/rateLimiters.js';
 import {
   createCourse,
+  deleteCourse,
   getCourse,
   joinCourse,
   leaveCourse,
@@ -41,10 +42,14 @@ courseRouter.get('/enrolled', authorize('student'), listEnrolledCourses);
 courseRouter.post('/join', authorize('student'), joinCourseLimiter, validate(joinCourseSchema), joinCourse);
 courseRouter.delete('/:id/enrollment', authorize('student'), leaveCourse);
 
-// Instructor: one course (owner only)
-courseRouter.get('/:id', authorize('instructor'), getCourse);
-courseRouter.patch('/:id', authorize('instructor'), validate(updateCourseSchema), updateCourse);
+// One course: its own instructor, or any admin (checked inside, in ownCourse).
+const manager = authorize('instructor', 'admin');
+courseRouter.get('/:id', manager, getCourse);
+courseRouter.patch('/:id', manager, validate(updateCourseSchema), updateCourse);
+courseRouter.delete('/:id', manager, deleteCourse);
+courseRouter.post('/:id/join-code', manager, regenerateJoinCode);
+courseRouter.get('/:id/students', manager, listStudents);
+courseRouter.delete('/:id/students/:studentId', manager, removeStudent);
+// Archive/restore by the instructor (admins use /api/admin/courses/:id/status,
+// which also marks the course as archived by an admin).
 courseRouter.patch('/:id/status', authorize('instructor'), validate(courseStatusSchema), setCourseStatus);
-courseRouter.post('/:id/join-code', authorize('instructor'), regenerateJoinCode);
-courseRouter.get('/:id/students', authorize('instructor'), listStudents);
-courseRouter.delete('/:id/students/:studentId', authorize('instructor'), removeStudent);

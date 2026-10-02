@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ASSIGNABLE_ROLES, INVITE_ROLES, ROLES, USER_STATUSES } from '../models/User.js';
 import { email } from './auth.schema.js';
 import { COURSE_STATUSES } from '../models/Course.js';
+import { createCourseSchema } from './course.schema.js';
 
 // GET /api/admin/users?q=&role=&status=&page=&pageSize=
 // Query string values always arrive as text, so numbers are coerced.
@@ -54,3 +55,14 @@ export const listCoursesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(10),
 });
+
+// The { error } covers a missing field too, not just a malformed one.
+const objectId = z.string({ error: 'Choose an instructor' }).regex(/^[a-f0-9]{24}$/, 'Choose an instructor');
+
+// POST /api/admin/courses : create a course for an instructor.
+export const adminCreateCourseSchema = createCourseSchema.extend({ instructorId: objectId });
+export type AdminCreateCourseInput = z.infer<typeof adminCreateCourseSchema>;
+
+// PATCH /api/admin/courses/:id/instructor : move a course to another instructor.
+export const reassignCourseSchema = z.object({ instructorId: objectId });
+export type ReassignCourseInput = z.infer<typeof reassignCourseSchema>;

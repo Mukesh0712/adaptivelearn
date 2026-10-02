@@ -16,38 +16,49 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { FieldError, FormError } from '@/features/auth/pages/AuthCard'
 import { useAuthForm } from '@/features/auth/useAuthForm'
+import { useAdminCreateCourseMutation } from '@/features/admin/adminApi'
+import { InstructorSelect } from '@/features/admin/InstructorSelect'
 import { useCreateCourseMutation, useUpdateCourseMutation } from './coursesApi'
-import { courseSchema } from './schemas'
+import { adminCourseSchema, courseSchema } from './schemas'
 import type { Course } from './types'
 
 // Create a course (no `course` given) or edit one. Controlled by the parent,
 // so it can be opened from a button or from a card's menu.
+//  - forAdmin: an admin creating a course for an instructor they choose.
 export function CourseFormDialog({
   course,
   open,
   onOpenChange,
+  forAdmin = false,
 }: {
   course?: Course
   open: boolean
   onOpenChange: (open: boolean) => void
+  forAdmin?: boolean
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         {/* Mounted only while open, so the form starts fresh every time. */}
-        {open && <CourseForm course={course} onDone={() => onOpenChange(false)} />}
+        {open && <CourseForm course={course} forAdmin={forAdmin && !course} onDone={() => onOpenChange(false)} />}
       </DialogContent>
     </Dialog>
   )
 }
 
-function CourseForm({ course, onDone }: { course?: Course; onDone: () => void }) {
+function CourseForm({ course, forAdmin, onDone }: { course?: Course; forAdmin: boolean; onDone: () => void }) {
   const [createCourse, create] = useCreateCourseMutation()
   const [updateCourse, update] = useUpdateCourseMutation()
-  const isLoading = create.isLoading || update.isLoading
+  const [adminCreate, adminCreating] = useAdminCreateCourseMutation()
+  const isLoading = create.isLoading || update.isLoading || adminCreating.isLoading
   const { values, setField, errors, formError, validate, handleServerError, fieldProps } = useAuthForm(
-    courseSchema,
-    { title: course?.title ?? '', code: course?.code ?? '', description: course?.description ?? '' },
+    forAdmin ? adminCourseSchema : courseSchema,
+    {
+      title: course?.title ?? '',
+      code: course?.code ?? '',
+      description: course?.description ?? '',
+      instructorId: '',
+    },
   )
 
   const handleSubmit = async (e: FormEvent) => {
@@ -55,7 +66,11 @@ function CourseForm({ course, onDone }: { course?: Course; onDone: () => void })
     if (!validate()) return
     const body = { title: values.title.trim(), code: values.code.trim(), description: values.description.trim() }
     try {
-      const res = course ? await updateCourse({ id: course.id, ...body }).unwrap() : await createCourse(body).unwrap()
+      const res = course
+        ? await updateCourse({ id: course.id, ...body }).unwrap()
+        : forAdmin
+          ? await adminCreate({ ...body, instructorId: values.instructorId }).unwrap()
+          : await createCourse(body).unwrap()
       toast.success(res.message)
       onDone()
     } catch (err) {
@@ -70,10 +85,26 @@ function CourseForm({ course, onDone }: { course?: Course; onDone: () => void })
         <DialogDescription>
           {course
             ? 'Changes are visible to enrolled students right away.'
-            : 'A join code is created automatically. Share it with your students so they can join.'}
+            : forAdmin
+              ? 'The instructor you choose will own the course and see it under My courses.'
+              : 'A join code is created automatically. Share it with your students so they can join.'}
         </DialogDescription>
       </DialogHeader>
       <FormError message={formError} />
+
+      {forAdmin && (
+        <div className="grid gap-2">
+          <Label htmlFor="instructorId">Instructor</Label>
+          <InstructorSelect
+            id="instructorId"
+            value={values.instructorId}
+            onChange={(id) => setField('instructorId', id)}
+            invalid={!!errors.instructorId}
+            describedBy={errors.instructorId ? 'instructorId-error' : undefined}
+          />
+          <FieldError id="instructorId-error" message={errors.instructorId} />
+        </div>
+      )}
 
       <div className="grid gap-2">
         <Label htmlFor="title">Title</Label>

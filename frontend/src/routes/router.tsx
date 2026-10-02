@@ -93,6 +93,8 @@ export const router = createBrowserRouter([
                   { index: true, element: <AdminDashboard /> },
                   { path: 'users', element: <AdminUsersPage /> },
                   { path: 'courses', element: <AdminCoursesPage /> },
+                  // Same page as the instructor's; the admin sees extra controls.
+                  { path: 'courses/:courseId', element: <InstructorCourseDetailPage /> },
                   { path: 'activity', element: <AdminActivityPage /> },
                 ],
               },

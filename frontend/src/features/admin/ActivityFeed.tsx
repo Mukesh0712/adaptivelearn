@@ -3,6 +3,8 @@ import {
   ArchiveRestore,
   Ban,
   BookPlus,
+  BookX,
+  ArrowRightLeft,
   CircleCheck,
   CircleX,
   KeyRound,
@@ -18,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { parseApiError } from '@/features/auth/apiError'
+import { formatDateTime, timeAgo } from '@/lib/dates'
 import { ROLE_LABEL } from '@/lib/roles'
 import type { AuditAction, AuditLog } from './types'
 
@@ -35,6 +38,8 @@ const ICON: Record<AuditAction, LucideIcon> = {
   'course.restored': ArchiveRestore,
   'course.code_reset': KeyRound,
   'course.student_removed': UserMinus,
+  'course.reassigned': ArrowRightLeft,
+  'course.deleted': BookX,
 }
 
 // One readable sentence per audit entry. Names come from the snapshot saved
@@ -43,7 +48,7 @@ function describe(log: AuditLog): string {
   const actor = log.actor?.name ?? 'Someone'
   const d = log.details ?? {}
   const target = log.target?.name ?? d.name ?? 'a user'
-  const label = (r?: keyof typeof ROLE_LABEL) => (r ? ROLE_LABEL[r] : 'user')
+  const label = (r?: string) => (r && r in ROLE_LABEL ? ROLE_LABEL[r as keyof typeof ROLE_LABEL] : 'user')
   switch (log.action) {
     case 'user.invited':
       return `${actor} invited ${target} as ${label(d.role)}`
@@ -62,7 +67,13 @@ function describe(log: AuditLog): string {
     case 'user.rejected':
       return `${actor} rejected the sign-up from ${d.name ?? 'someone'} (${label(d.role)})`
     case 'course.created':
-      return `${actor} created the course ${d.title ?? ''}`
+      return d.instructorName
+        ? `${actor} created the course ${d.title ?? ''} for ${d.instructorName}`
+        : `${actor} created the course ${d.title ?? ''}`
+    case 'course.reassigned':
+      return `${actor} moved ${d.title ?? 'a course'} from ${d.from ?? 'someone'} to ${d.to ?? 'someone'}`
+    case 'course.deleted':
+      return `${actor} deleted the course ${d.title ?? ''}`
     case 'course.archived':
       return `${actor} archived the course ${d.title ?? ''}`
     case 'course.restored':
@@ -74,27 +85,6 @@ function describe(log: AuditLog): string {
   }
 }
 
-// "5 minutes ago", "yesterday", …
-const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
-function timeAgo(iso: string): string {
-  const seconds = Math.round((new Date(iso).getTime() - Date.now()) / 1000)
-  if (Number.isNaN(seconds)) return '' // invalid date: formatting it would throw
-  const steps: [Intl.RelativeTimeFormatUnit, number][] = [
-    ['day', 86400],
-    ['hour', 3600],
-    ['minute', 60],
-  ]
-  for (const [unit, size] of steps) {
-    if (Math.abs(seconds) >= size) return rtf.format(Math.round(seconds / size), unit)
-  }
-  return 'just now'
-}
-
-const fullDate = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
-const formatFull = (iso: string) => {
-  const date = new Date(iso)
-  return Number.isNaN(date.getTime()) ? '' : fullDate.format(date)
-}
 
 // The list of audit entries with its loading, error and empty states.
 // Shared by the dashboard's "Recent activity" card and the Activity page.
@@ -141,7 +131,7 @@ export function ActivityFeed({
     <ul className="grid gap-3">
       {logs.map((log) => {
         const Icon = ICON[log.action] ?? MailCheck
-        const full = formatFull(log.createdAt)
+        const full = formatDateTime(log.createdAt)
         return (
           <li key={log.id} className="flex items-start gap-3 text-sm">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
