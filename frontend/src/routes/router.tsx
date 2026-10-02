@@ -6,6 +6,7 @@ import { GuestRoute, HomeRedirect, ProtectedRoute, RoleRoute } from './guards'
 import {
   AcceptInvitePage,
   AdminActivityPage,
+  AdminCoursesPage,
   AdminDashboard,
   AdminUsersPage,
   AppLayout,
@@ -91,6 +92,7 @@ export const router = createBrowserRouter([
                 children: [
                   { index: true, element: <AdminDashboard /> },
                   { path: 'users', element: <AdminUsersPage /> },
+                  { path: 'courses', element: <AdminCoursesPage /> },
                   { path: 'activity', element: <AdminActivityPage /> },
                 ],
               },

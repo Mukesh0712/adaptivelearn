@@ -6,6 +6,7 @@ import { AuditLogModel } from '../models/AuditLog.js';
 import { parseOrThrow } from '../middleware/validate.js';
 import { ApiError } from '../utils/ApiError.js';
 import { audit } from '../utils/audit.js';
+import { escapeRegex } from '../utils/regex.js';
 import { sendInviteEmail } from '../utils/mailer.js';
 import { generateLinkToken, hashToken } from '../utils/tokens.js';
 import {
@@ -17,10 +18,6 @@ import {
   type InviteInput,
 } from '../validators/admin.schema.js';
 
-// Escapes regex special characters so a search for "a.b" or "(x" matches that
-// text literally instead of being run as a pattern (also prevents a crafted
-// search from making MongoDB run a very slow regex).
-const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Lists users for the Admin "Users" page, newest first, one page at a time.
 // Search matches part of the name or email, case-insensitively.

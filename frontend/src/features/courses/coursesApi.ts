@@ -13,7 +13,7 @@ export const coursesApi = baseApi.injectEndpoints({
     }),
     createCourse: build.mutation<CourseResponse, CourseInput>({
       query: (body) => ({ url: '/courses', method: 'POST', body }),
-      invalidatesTags: ['Courses'],
+      invalidatesTags: ['Courses', 'AuditLogs'],
     }),
     updateCourse: build.mutation<CourseResponse, { id: string } & CourseInput>({
       query: ({ id, ...body }) => ({ url: `/courses/${id}`, method: 'PATCH', body }),
@@ -25,7 +25,7 @@ export const coursesApi = baseApi.injectEndpoints({
     }),
     regenerateJoinCode: build.mutation<CourseResponse, string>({
       query: (id) => ({ url: `/courses/${id}/join-code`, method: 'POST' }),
-      invalidatesTags: ['Courses'],
+      invalidatesTags: ['Courses', 'AuditLogs'],
     }),
     courseStudents: build.query<{ students: CourseStudent[] }, string>({
       query: (id) => `/courses/${id}/students`,
@@ -33,7 +33,7 @@ export const coursesApi = baseApi.injectEndpoints({
     }),
     removeStudent: build.mutation<{ message: string }, { courseId: string; studentId: string }>({
       query: ({ courseId, studentId }) => ({ url: `/courses/${courseId}/students/${studentId}`, method: 'DELETE' }),
-      invalidatesTags: ['Courses'],
+      invalidatesTags: ['Courses', 'AuditLogs'],
     }),
     // Student
     enrolledCourses: build.query<{ courses: EnrolledCourse[] }, void>({
@@ -50,7 +50,7 @@ export const coursesApi = baseApi.injectEndpoints({
     }),
     setCourseStatus: build.mutation<CourseResponse, { id: string; status: CourseStatus }>({
       query: ({ id, status }) => ({ url: `/courses/${id}/status`, method: 'PATCH', body: { status } }),
-      invalidatesTags: ['Courses'],
+      invalidatesTags: ['Courses', 'AuditLogs'],
     }),
   }),
 })

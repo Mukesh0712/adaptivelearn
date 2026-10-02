@@ -1,9 +1,11 @@
 import { baseApi } from '@/services/baseApi'
 import type {
   AssignableRole,
+  AdminCourse,
   AuditLog,
   InviteRequest,
   InviteResponse,
+  ListCoursesParams,
   ListUsersParams,
   ListUsersResponse,
   Paginated,
@@ -34,6 +36,14 @@ export const adminApi = baseApi.injectEndpoints({
       query: ({ id, status }) => ({ url: `/admin/users/${id}/status`, method: 'PATCH', body: { status } }),
       invalidatesTags: ['Users', 'AuditLogs'],
     }),
+    listCourses: build.query<Paginated<{ courses: AdminCourse[] }>, ListCoursesParams>({
+      query: (params) => ({ url: '/admin/courses', params }),
+      providesTags: ['Courses'],
+    }),
+    setAnyCourseStatus: build.mutation<{ message: string }, { id: string; status: 'active' | 'archived' }>({
+      query: ({ id, status }) => ({ url: `/admin/courses/${id}/status`, method: 'PATCH', body: { status } }),
+      invalidatesTags: ['Courses', 'AuditLogs'],
+    }),
     listAuditLogs: build.query<Paginated<{ logs: AuditLog[] }>, { page: number; pageSize: number }>({
       query: (params) => ({ url: '/admin/audit-logs', params }),
       providesTags: ['AuditLogs'],
@@ -48,4 +58,6 @@ export const {
   useChangeRoleMutation,
   useChangeStatusMutation,
   useListAuditLogsQuery,
+  useListCoursesQuery,
+  useSetAnyCourseStatusMutation,
 } = adminApi

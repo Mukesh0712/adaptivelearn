@@ -22,6 +22,7 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
   admin: [
     { title: 'Dashboard', to: ROLE_HOME.admin, icon: LayoutDashboard },
     { title: 'Users', to: `${ROLE_HOME.admin}/users`, icon: UsersRound },
+    { title: 'Courses', to: `${ROLE_HOME.admin}/courses`, icon: BookOpen },
     { title: 'Activity', to: `${ROLE_HOME.admin}/activity`, icon: History },
   ],
 }

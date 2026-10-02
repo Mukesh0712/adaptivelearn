@@ -9,6 +9,7 @@ export interface Course {
   instructor: string
   joinCode: string
   status: CourseStatus
+  archivedByAdmin?: boolean // archived by an admin: only an admin can restore it
   studentCount?: number // included in the instructor's lists
   createdAt: string
   updatedAt: string

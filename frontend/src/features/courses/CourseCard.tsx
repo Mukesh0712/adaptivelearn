@@ -58,7 +58,7 @@ export function CourseCard({ course }: { course: Course }) {
             </CardTitle>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {course.code && <Badge variant="secondary">{course.code}</Badge>}
-              {archived && <Badge variant="outline">Archived</Badge>}
+              {archived && <Badge variant="outline">{course.archivedByAdmin ? 'Archived by admin' : 'Archived'}</Badge>}
             </div>
           </div>
           <DropdownMenu>
@@ -74,7 +74,8 @@ export function CourseCard({ course }: { course: Course }) {
                 Edit
               </DropdownMenuItem>
               {archived ? (
-                <DropdownMenuItem onClick={() => void changeStatus('active')}>
+                // A course an admin archived can only be restored by an admin.
+                <DropdownMenuItem disabled={course.archivedByAdmin} onClick={() => void changeStatus('active')}>
                   <ArchiveRestore aria-hidden="true" />
                   Restore
                 </DropdownMenuItem>
@@ -92,7 +93,10 @@ export function CourseCard({ course }: { course: Course }) {
         )}
       </CardHeader>
 
-      <CardContent className="mt-auto">
+      <CardContent className="mt-auto space-y-2">
+        {course.archivedByAdmin && (
+          <p className="text-sm">An administrator archived this course. Contact them to restore it.</p>
+        )}
         <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <Users className="size-4" aria-hidden="true" />
           {course.studentCount ?? 0} {course.studentCount === 1 ? 'student' : 'students'}

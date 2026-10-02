@@ -3,6 +3,8 @@ import type { Types } from 'mongoose';
 import { CourseModel, type CourseDocument } from '../models/Course.js';
 import { EnrollmentModel } from '../models/Enrollment.js';
 import { ApiError } from '../utils/ApiError.js';
+import { audit } from '../utils/audit.js';
+import { studentCounts } from '../utils/courseStats.js';
 import { generateJoinCode } from '../utils/joinCode.js';
 import {
   courseIdParamSchema,
@@ -16,15 +18,7 @@ import {
 const isDuplicateKey = (err: unknown) =>
   typeof err === 'object' && err !== null && 'code' in err && err.code === 11000;
 
-// Number of students in each of the given courses, in ONE database query
-// (an aggregation grouping enrolments by course), not one query per course.
-async function studentCounts(courseIds: Types.ObjectId[]): Promise<Map<string, number>> {
-  const rows = await EnrollmentModel.aggregate<{ _id: Types.ObjectId; n: number }>([
-    { $match: { course: { $in: courseIds } } },
-    { $group: { _id: '$course', n: { $sum: 1 } } },
-  ]);
-  return new Map(rows.map((r) => [String(r._id), r.n]));
-}
+
 
 // Finds a course owned by the logged-in instructor. Someone else's course
 // gives the same 404 as a course that doesn't exist, so instructors can't
@@ -65,6 +59,7 @@ export async function createCourse(req: Request, res: Response) {
         instructor: req.user!.id,
         joinCode: generateJoinCode(),
       });
+      await audit(req.user!.id, 'course.created', null, { courseId: course.id, title: course.title });
       res.status(201).json({ course: course.toJSON(), message: `Course "${course.title}" created` });
       return;
     } catch (err) {
@@ -90,8 +85,16 @@ export async function setCourseStatus(req: Request, res: Response) {
   if (course.status === status) {
     throw ApiError.conflict(`This course is already ${status}`);
   }
+  if (status === 'active' && course.archivedByAdmin) {
+    throw ApiError.forbidden('An administrator archived this course. Contact them to restore it.');
+  }
   course.status = status;
+  course.archivedByAdmin = false;
   await course.save();
+  await audit(req.user!.id, status === 'archived' ? 'course.archived' : 'course.restored', null, {
+    courseId: course.id,
+    title: course.title,
+  });
   res.json({
     course: course.toJSON(),
     message:
@@ -109,6 +112,7 @@ export async function regenerateJoinCode(req: Request, res: Response) {
     try {
       course.joinCode = generateJoinCode();
       await course.save();
+      await audit(req.user!.id, 'course.code_reset', null, { courseId: course.id, title: course.title });
       res.json({ course: course.toJSON(), message: 'New join code created. The old code no longer works.' });
       return;
     } catch (err) {
@@ -143,9 +147,13 @@ export async function listStudents(req: Request, res: Response) {
 // DELETE /api/courses/:id/students/:studentId : instructor removes a student.
 export async function removeStudent(req: Request, res: Response) {
   const course = await ownCourse(req);
-  const { studentId } = studentParamSchema.parse(req.params);
-  const removed = await EnrollmentModel.findOneAndDelete({ course: course._id, student: studentId });
+  // safeParse, not parse: a malformed id must be a clean 404, not a crash (500).
+  const studentId = studentParamSchema.safeParse(req.params).data?.studentId;
+  const removed = studentId
+    ? await EnrollmentModel.findOneAndDelete({ course: course._id, student: studentId })
+    : null;
   if (!removed) throw ApiError.notFound('This student is not in the course');
+  await audit(req.user!.id, 'course.student_removed', removed.student, { courseId: course.id, title: course.title });
   res.json({ message: 'Student removed from the course' });
 }
 
