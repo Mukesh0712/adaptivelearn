@@ -7,6 +7,7 @@ import { env, isProduction } from './config/env.js';
 import { authRouter } from './routes/auth.routes.js';
 import { adminRouter } from './routes/admin.routes.js';
 import { courseRouter } from './routes/course.routes.js';
+import { dashboardRouter } from './routes/dashboard.routes.js';
 import { testRouter } from './routes/test.routes.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
@@ -60,6 +61,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/courses', courseRouter);
+app.use('/api/dashboard', dashboardRouter);
 app.use('/api/test', testRouter);
 
 // Production: also serve the React app from this same server.
