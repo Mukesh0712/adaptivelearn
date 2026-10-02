@@ -31,13 +31,19 @@ const envSchema = z.object({
 
   PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().positive().default(30),
 
-  // Email (optional). Without SMTP_USER/SMTP_PASS, reset links are printed to
-  // the console in development instead of being emailed.
+  // Email (optional). Provider is chosen automatically:
+  //   BREVO_API_KEY set           → Brevo HTTPS API (works on hosts that block SMTP, e.g. Render)
+  //   else SMTP_USER + SMTP_PASS  → SMTP (e.g. Gmail, for local development)
+  //   else                        → development only: links are printed to the console
+  BREVO_API_KEY: z.string().optional(),
   SMTP_HOST: z.string().default('smtp.gmail.com'),
   SMTP_PORT: z.coerce.number().int().positive().default(465),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  MAIL_FROM: z.string().optional(),
+  // Sender shown on emails. With Brevo it must be a sender verified in your
+  // Brevo account. Defaults to SMTP_USER.
+  MAIL_FROM_EMAIL: z.preprocess((v) => (v === '' ? undefined : v), z.email().optional()),
+  MAIL_FROM_NAME: z.string().default('AdaptiveLearn'),
 });
 
 const parsed = envSchema.safeParse(process.env);
