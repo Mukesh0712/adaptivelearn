@@ -4,6 +4,7 @@ import { authorize } from '../middleware/authorize.js';
 import { validate } from '../middleware/validate.js';
 import { joinCourseLimiter } from '../middleware/rateLimiters.js';
 import {
+  cancelJoinRequest,
   createCourse,
   deleteCourse,
   getCourse,
@@ -41,6 +42,7 @@ courseRouter.post('/', authorize('instructor'), validate(createCourseSchema), cr
 courseRouter.get('/enrolled', authorize('student'), listEnrolledCourses);
 courseRouter.post('/join', authorize('student'), joinCourseLimiter, validate(joinCourseSchema), joinCourse);
 courseRouter.delete('/:id/enrollment', authorize('student'), leaveCourse);
+courseRouter.delete('/:id/join-request', authorize('student'), cancelJoinRequest);
 
 // One course: its own instructor, or any admin (checked inside, in ownCourse).
 const manager = authorize('instructor', 'admin');

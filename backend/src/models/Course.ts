@@ -22,6 +22,10 @@ const courseSchema = new Schema(
     // Set the first time a student joins, and never cleared. A course can only
     // be deleted while this is false: anything with history is archived instead.
     hasHadStudents: { type: Boolean, default: false },
+    // true: a student who enters the join code only sends a request, and
+    // joins once the instructor (or an admin) approves it. Courses created
+    // before this setting existed get the default (true) when loaded.
+    requireApproval: { type: Boolean, default: true },
   },
   {
     timestamps: true,

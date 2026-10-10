@@ -92,6 +92,8 @@ export type AuditAction =
   | 'course.student_removed'
   | 'course.reassigned'
   | 'course.deleted'
+  | 'course.join_approved'
+  | 'course.join_rejected'
 
 // actor/target are filled in by the server; null if that user was deleted.
 type AuditUser = Pick<User, 'name' | 'email' | 'role'> & { _id: string }

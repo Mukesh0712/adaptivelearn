@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import type { QueryFilter, Types } from 'mongoose';
 import { env } from '../config/env.js';
 import { CourseModel } from '../models/Course.js';
+import { JoinRequestModel } from '../models/JoinRequest.js';
 import { UserModel, type User } from '../models/User.js';
 import { parseOrThrow } from '../middleware/validate.js';
 import { audit } from '../utils/audit.js';
@@ -127,6 +128,121 @@ export async function reject(req: Request, res: Response) {
       continue;
     }
     await audit(req.user!.id, 'user.rejected', null, { name: removed.name, email: removed.email, role: removed.role });
+    results.push({ id, outcome: 'done' });
+  }
+  res.json({ results, message: summary('rejected', results) });
+}
+
+// ---------------------------------------------------------------------------
+// Course join requests: students who already have an account and entered
+// the code of a course that needs approval. Same rules as sign-ups above:
+//  - admin: requests for every active course;
+//  - instructor: requests for their own active courses only.
+
+async function joinScope(req: Request) {
+  const courses = await CourseModel.find(
+    req.user!.role === 'admin' ? { status: 'active' } : { instructor: req.user!.id, status: 'active' },
+  ).select('_id');
+  return { course: { $in: courses.map((c) => c._id) } };
+}
+
+type PopulatedRequest = {
+  course: { _id: Types.ObjectId; title: string } | null;
+  student: { _id: Types.ObjectId; name: string; email: string; status?: string } | null;
+};
+
+// GET /api/approvals/joins : oldest first, like sign-ups.
+export async function listJoinRequests(req: Request, res: Response) {
+  const { page, pageSize } = parseOrThrow(approvalListQuerySchema, req.query);
+  const filter = await joinScope(req);
+  const [requests, total] = await Promise.all([
+    JoinRequestModel.find(filter)
+      .sort({ createdAt: 1, _id: 1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .populate<PopulatedRequest>([
+        { path: 'course', select: 'title' },
+        { path: 'student', select: 'name email status' },
+      ]),
+    JoinRequestModel.countDocuments(filter),
+  ]);
+  res.json({
+    requests: requests
+      .filter((r) => r.course && r.student)
+      .map((r) => ({
+        id: r.id, // the request's id (what approve/reject take)
+        name: r.student!.name,
+        email: r.student!.email,
+        role: 'student',
+        status: r.student!.status ?? 'active',
+        createdAt: r.get('createdAt'),
+        course: { id: String(r.course!._id), title: r.course!.title },
+      })),
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  });
+}
+
+// Why a request couldn't be claimed: gone (someone else answered, or the
+// student cancelled) or outside this user's courses.
+async function explainJoin(id: string): Promise<{ outcome: Outcome }> {
+  return { outcome: (await JoinRequestModel.exists({ _id: id })) ? 'not_allowed' : 'already_handled' };
+}
+
+// POST /api/approvals/joins/approve  { ids }
+// Each request is CLAIMED by deleting it ("delete WHERE id AND in my
+// courses"): if the admin and the instructor click together, only one
+// delete matches, so the student is enrolled exactly once.
+export async function approveJoins(req: Request, res: Response) {
+  const { ids } = req.body as ApprovalIdsInput;
+  const filter = await joinScope(req);
+  const results: { id: string; outcome: Outcome }[] = [];
+  for (const id of ids) {
+    const claimed = await JoinRequestModel.findOneAndDelete({ ...filter, _id: id }).populate<PopulatedRequest>([
+      { path: 'course', select: 'title' },
+      { path: 'student', select: 'name' },
+    ]);
+    if (!claimed) {
+      results.push({ id, ...(await explainJoin(id)) });
+      continue;
+    }
+    const enrolled = claimed.course && claimed.student ? await enrollStudent(claimed.course._id, claimed.student._id) : false;
+    if (!enrolled) {
+      results.push({ id, outcome: 'already_handled' }); // course archived or student removed meanwhile
+      continue;
+    }
+    await audit(req.user!.id, 'course.join_approved', claimed.student!._id, {
+      name: claimed.student!.name,
+      title: claimed.course!.title,
+      courseId: String(claimed.course!._id),
+    });
+    results.push({ id, outcome: 'done' });
+  }
+  res.json({ results, message: summary('approved', results) });
+}
+
+// POST /api/approvals/joins/reject  { ids } : the request is removed; the
+// student can ask again with the code (create a new code to stop that).
+export async function rejectJoins(req: Request, res: Response) {
+  const { ids } = req.body as ApprovalIdsInput;
+  const filter = await joinScope(req);
+  const results: { id: string; outcome: Outcome }[] = [];
+  for (const id of ids) {
+    const removed = await JoinRequestModel.findOneAndDelete({ ...filter, _id: id }).populate<PopulatedRequest>([
+      { path: 'course', select: 'title' },
+      { path: 'student', select: 'name' },
+    ]);
+    if (!removed) {
+      results.push({ id, ...(await explainJoin(id)) });
+      continue;
+    }
+    await audit(req.user!.id, 'course.join_rejected', removed.student?._id ?? null, {
+      name: removed.student?.name,
+      title: removed.course?.title,
+      courseId: removed.course ? String(removed.course._id) : undefined,
+    });
     results.push({ id, outcome: 'done' });
   }
   res.json({ results, message: summary('rejected', results) });

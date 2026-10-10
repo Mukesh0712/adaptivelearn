@@ -31,6 +31,22 @@ export const approvalsApi = baseApi.injectEndpoints({
       query: (ids) => ({ url: '/approvals/approve', method: 'POST', body: { ids } }),
       invalidatesTags: ['Approvals', 'Users', 'Courses', 'AuditLogs'],
     }),
+    // Course join requests (students who already have an account).
+    listJoinRequests: build.query<
+      { requests: ApprovalRequest[]; total: number; page: number; pageSize: number; totalPages: number },
+      { page: number; pageSize: number }
+    >({
+      query: (params) => ({ url: '/approvals/joins', params }),
+      providesTags: ['Approvals'],
+    }),
+    approveJoinRequests: build.mutation<ApprovalResult, string[]>({
+      query: (ids) => ({ url: '/approvals/joins/approve', method: 'POST', body: { ids } }),
+      invalidatesTags: ['Approvals', 'Courses', 'AuditLogs'],
+    }),
+    rejectJoinRequests: build.mutation<ApprovalResult, string[]>({
+      query: (ids) => ({ url: '/approvals/joins/reject', method: 'POST', body: { ids } }),
+      invalidatesTags: ['Approvals', 'Courses', 'AuditLogs'],
+    }),
     rejectRequests: build.mutation<ApprovalResult, string[]>({
       query: (ids) => ({ url: '/approvals/reject', method: 'POST', body: { ids } }),
       invalidatesTags: ['Approvals', 'Users', 'AuditLogs'],
@@ -38,4 +54,11 @@ export const approvalsApi = baseApi.injectEndpoints({
   }),
 })
 
-export const { useListApprovalsQuery, useApproveRequestsMutation, useRejectRequestsMutation } = approvalsApi
+export const {
+  useListApprovalsQuery,
+  useApproveRequestsMutation,
+  useRejectRequestsMutation,
+  useListJoinRequestsQuery,
+  useApproveJoinRequestsMutation,
+  useRejectJoinRequestsMutation,
+} = approvalsApi

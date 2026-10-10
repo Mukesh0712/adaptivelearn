@@ -2,20 +2,29 @@ import { Link } from 'react-router'
 import { UserRoundCheck } from 'lucide-react'
 import { useAuth } from '@/app/hooks'
 import { buttonVariants } from '@/components/ui/button'
-import { useListApprovalsQuery } from '@/features/approvals/approvalsApi'
+import { useListApprovalsQuery, useListJoinRequestsQuery } from '@/features/approvals/approvalsApi'
 
 // "3 sign-ups are waiting for your approval  [Review]" for an admin, or
 // "2 students asked to join your courses  [Review]" for an instructor.
-// Hidden when nobody is waiting. Asks only for the count (page size 1).
+// Counts both account sign-ups and course join requests. Hidden when
+// nobody is waiting. Asks only for the counts (page size 1).
 export function PendingBanner({ hidden = false }: { hidden?: boolean }) {
   const isAdmin = useAuth().user?.role === 'admin'
-  const { data } = useListApprovalsQuery({ page: 1, pageSize: 1 })
-  const count = data?.total ?? 0
+  const signups = useListApprovalsQuery({ page: 1, pageSize: 1 }).data?.total ?? 0
+  const joins = useListJoinRequestsQuery({ page: 1, pageSize: 1 }).data?.total ?? 0
+  const count = signups + joins
   if (hidden || count === 0) return null
 
   const text = isAdmin
-    ? `${count === 1 ? '1 sign-up is' : `${count} sign-ups are`} waiting for your approval`
+    ? [
+        signups ? `${signups} ${signups === 1 ? 'sign-up' : 'sign-ups'}` : '',
+        joins ? `${joins} course join ${joins === 1 ? 'request' : 'requests'}` : '',
+      ]
+        .filter(Boolean)
+        .join(' and ') + ` ${count === 1 ? 'is' : 'are'} waiting for your approval`
     : `${count === 1 ? '1 student has' : `${count} students have`} asked to join your courses`
+  // Only join requests waiting: open that tab directly.
+  const view = signups === 0 ? '?view=courses' : ''
 
   return (
     <div
@@ -26,7 +35,7 @@ export function PendingBanner({ hidden = false }: { hidden?: boolean }) {
         <UserRoundCheck className="size-4 shrink-0" aria-hidden="true" />
         {text}
       </p>
-      <Link to={isAdmin ? '/admin/approvals' : '/instructor/requests'} className={buttonVariants({ size: 'sm' })}>
+      <Link to={`${isAdmin ? '/admin/approvals' : '/instructor/requests'}${view}`} className={buttonVariants({ size: 'sm' })}>
         Review
       </Link>
     </div>

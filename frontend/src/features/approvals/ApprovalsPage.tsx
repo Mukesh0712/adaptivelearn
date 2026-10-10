@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router'
 import { CircleCheck, UserRoundCheck, XCircle } from 'lucide-react'
 import { useAuth } from '@/app/hooks'
 import { BulkBar } from '@/components/BulkBar'
@@ -21,21 +22,96 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { RoleBadge } from '@/features/admin/UserBadges'
 import { parseApiError } from '@/features/auth/apiError'
 import { formatDateTime, timeAgo } from '@/lib/dates'
-import { useApproveRequestsMutation, useListApprovalsQuery, useRejectRequestsMutation } from './approvalsApi'
+import { cn } from '@/lib/utils'
+import {
+  useApproveJoinRequestsMutation,
+  useApproveRequestsMutation,
+  useListApprovalsQuery,
+  useListJoinRequestsQuery,
+  useRejectJoinRequestsMutation,
+  useRejectRequestsMutation,
+} from './approvalsApi'
 import { showApprovalResult } from './showResult'
 import { toast } from 'sonner'
 
 const PAGE_SIZE = 20
 
-// Pending sign-ups, shared by the admin ("Approvals": everyone) and the
-// instructor ("Join requests": students asking to join their courses).
-// Tick several and approve or reject them in one go.
+type View = 'signups' | 'courses'
+
+// Shared by the admin ("Approvals": everyone) and the instructor ("Join
+// requests": their own courses). Two tabs:
+//  - Account sign-ups: new accounts waiting to be activated;
+//  - Course join requests: existing students who entered a course code.
+// The tab is in the URL (?view=courses), so links can open it directly.
 export default function ApprovalsPage() {
   const isAdmin = useAuth().user?.role === 'admin'
+  const [params] = useSearchParams()
+  const view: View = params.get('view') === 'courses' ? 'courses' : 'signups'
+  // Page size 1: only the totals, for the tab labels.
+  const signups = useListApprovalsQuery({ page: 1, pageSize: 1 })
+  const joins = useListJoinRequestsQuery({ page: 1, pageSize: 1 })
+  const title = isAdmin ? 'Approvals' : 'Join requests'
+  const tabs: { view: View; label: string; count?: number }[] = [
+    { view: 'signups', label: 'Account sign-ups', count: signups.data?.total },
+    { view: 'courses', label: 'Course join requests', count: joins.data?.total },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <PageMeta title={title} />
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        <p className="text-muted-foreground">
+          {view === 'courses'
+            ? isAdmin
+              ? 'Students who already have an account and entered the code of a course that needs approval.'
+              : 'Students who already have an account and entered the code of one of your courses. Approving adds them to the course.'
+            : isAdmin
+              ? 'Everyone who signed up and is waiting for approval. Instructors can also approve students for their own courses.'
+              : 'Students who signed up with one of your class codes. Approving them activates their account and adds them to the class.'}
+        </p>
+      </div>
+
+      {/* Tabs are links (each view has its own address); aria-current marks the open one. */}
+      <nav aria-label="Request type" className="flex gap-1 border-b">
+        {tabs.map((t) => (
+          <Link
+            key={t.view}
+            to={{ search: t.view === 'signups' ? '' : '?view=courses' }}
+            aria-current={view === t.view ? 'page' : undefined}
+            className={cn(
+              '-mb-px flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors',
+              view === t.view ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {t.label}
+            {!!t.count && (
+              <span className="rounded-full bg-primary px-1.5 text-xs text-primary-foreground tabular-nums">{t.count}</span>
+            )}
+          </Link>
+        ))}
+      </nav>
+
+      {/* key: switching tabs starts a fresh list (page 1, nothing ticked). */}
+      <RequestQueue key={view} view={view} isAdmin={isAdmin} title={title} />
+    </div>
+  )
+}
+
+function RequestQueue({ view, isAdmin, title }: { view: View; isAdmin: boolean; title: string }) {
+  const forCourses = view === 'courses'
   const [page, setPage] = useState(1)
-  const { data, error, isLoading, isFetching, refetch } = useListApprovalsQuery({ page, pageSize: PAGE_SIZE })
-  const [approve, approving] = useApproveRequestsMutation()
-  const [reject, rejecting] = useRejectRequestsMutation()
+  const signups = useListApprovalsQuery({ page, pageSize: PAGE_SIZE }, { skip: forCourses })
+  const joins = useListJoinRequestsQuery({ page, pageSize: PAGE_SIZE }, { skip: !forCourses })
+  const { data, error, isLoading, isFetching, refetch } = forCourses ? joins : signups
+  const [approveSignups, approvingSignups] = useApproveRequestsMutation()
+  const [rejectSignups, rejectingSignups] = useRejectRequestsMutation()
+  const [approveJoins, approvingJoins] = useApproveJoinRequestsMutation()
+  const [rejectJoins, rejectingJoins] = useRejectJoinRequestsMutation()
+  const approve = forCourses ? approveJoins : approveSignups
+  const reject = forCourses ? rejectJoins : rejectSignups
+  const approving = forCourses ? approvingJoins : approvingSignups
+  const rejecting = forCourses ? rejectingJoins : rejectingSignups
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmReject, setConfirmReject] = useState<string[] | null>(null)
   const busy = approving.isLoading || rejecting.isLoading
@@ -70,19 +146,8 @@ export default function ApprovalsPage() {
     }
   }
 
-  const title = isAdmin ? 'Approvals' : 'Join requests'
   return (
     <div className="space-y-6">
-      <PageMeta title={title} />
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        <p className="text-muted-foreground">
-          {isAdmin
-            ? "Everyone who signed up and is waiting for approval. Instructors can also approve students for their own courses."
-            : 'Students who signed up with one of your class codes. Approving them activates their account and adds them to the class.'}
-        </p>
-      </div>
-
       {/* Bulk bar: appears once something is ticked. */}
       <BulkBar count={chosen.length} onClear={() => setSelected(new Set())}>
         <Button size="sm" disabled={busy} onClick={() => void run('approve', chosen)}>
@@ -112,7 +177,9 @@ export default function ApprovalsPage() {
             </div>
           ) : (
             <Table className={isFetching && !isLoading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
-              <TableCaption className="sr-only">{title}, oldest first</TableCaption>
+              <TableCaption className="sr-only">
+                {title}: {forCourses ? 'course join requests' : 'account sign-ups'}, oldest first
+              </TableCaption>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-px pl-4">
@@ -127,8 +194,10 @@ export default function ApprovalsPage() {
                     />
                   </TableHead>
                   <TableHead>Name</TableHead>
-                  <TableHead className="hidden sm:table-cell">{isAdmin ? 'Role / class' : 'Class'}</TableHead>
-                  <TableHead className="hidden md:table-cell">Signed up</TableHead>
+                  <TableHead className="hidden sm:table-cell">
+                    {forCourses ? 'Course' : isAdmin ? 'Role / class' : 'Class'}
+                  </TableHead>
+                  <TableHead className="hidden md:table-cell">{forCourses ? 'Asked' : 'Signed up'}</TableHead>
                   <TableHead className="w-px pr-4">
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -162,7 +231,7 @@ export default function ApprovalsPage() {
                         </TableCell>
                         <TableCell className="hidden whitespace-normal sm:table-cell">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            {isAdmin && <RoleBadge role={r.role} />}
+                            {isAdmin && !forCourses && <RoleBadge role={r.role} />}
                             {r.course ? (
                               <span>{r.course.title}</span>
                             ) : (
@@ -226,10 +295,12 @@ export default function ApprovalsPage() {
             <AlertDialogTitle>
               {confirmReject?.length === 1
                 ? `Reject ${rows.find((r) => r.id === confirmReject[0])?.name ?? 'this sign-up'}?`
-                : `Reject ${confirmReject?.length ?? 0} sign-ups?`}
+                : `Reject ${confirmReject?.length ?? 0} ${forCourses ? 'requests' : 'sign-ups'}?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Their pending accounts are removed and they can't log in. If it was a mistake, they can register again.
+              {forCourses
+                ? "They won't be added to the course. They could ask again with the same code; create a new code if you don't want that."
+                : "Their pending accounts are removed and they can't log in. If it was a mistake, they can register again."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

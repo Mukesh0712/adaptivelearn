@@ -40,6 +40,7 @@ function JoinForm({ onDone }: { onDone: () => void }) {
       return
     }
     try {
+      // Either "You joined …" or "Request sent …" (the course needs approval).
       toast.success((await join(code).unwrap()).message)
       onDone()
     } catch (err) {

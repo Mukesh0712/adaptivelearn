@@ -43,6 +43,7 @@ import {
   useCourseStudentsQuery,
   useRegenerateJoinCodeMutation,
   useRemoveStudentMutation,
+  useSetRequireApprovalMutation,
 } from '@/features/courses/coursesApi'
 import { formatJoinCode } from '@/features/courses/joinCode'
 import type { Course, CourseStudent } from '@/features/courses/types'
@@ -126,7 +127,7 @@ export default function CourseDetailPage() {
       {isAdmin && <InstructorCard course={course} />}
 
       {course.status === 'active' ? (
-        <JoinCodeCard course={course} />
+        <JoinCodeCard course={course} requestsPath={isAdmin ? '/admin/approvals?view=courses' : '/instructor/requests?view=courses'} />
       ) : (
         <p className="rounded-lg border bg-muted px-3 py-2 text-sm">
           This course is archived: students can't see it or join it. Restore it from {isAdmin ? 'Courses' : 'My courses'}{' '}
@@ -240,9 +241,21 @@ function ReassignForm({ course, onDone }: { course: Course; onDone: () => void }
   )
 }
 
-function JoinCodeCard({ course }: { course: Course }) {
+function JoinCodeCard({ course, requestsPath }: { course: Course; requestsPath: string }) {
   const [confirm, setConfirm] = useState(false)
   const [regenerate, { isLoading }] = useRegenerateJoinCodeMutation()
+  const [setRequireApproval, { isLoading: isSwitching }] = useSetRequireApprovalMutation()
+  const pending = course.pendingRequests ?? 0
+  const requireApproval = course.requireApproval
+
+  // The box flips at once (see setRequireApproval); if saving fails it flips back.
+  const toggleApproval = async (next: boolean) => {
+    try {
+      toast.success((await setRequireApproval({ id: course.id, requireApproval: next }).unwrap()).message)
+    } catch (err) {
+      toast.error(parseApiError(err).message)
+    }
+  }
   const code = formatJoinCode(course.joinCode)
 
   const doRegenerate = async () => {
@@ -260,7 +273,8 @@ function JoinCodeCard({ course }: { course: Course }) {
         <CardTitle>Join code</CardTitle>
         <CardDescription>Share this with your students. They enter it under My courses → Join course.</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-wrap items-center gap-3">
+      <CardContent className="grid gap-4">
+        <div className="flex flex-wrap items-center gap-3">
         <p className="font-mono text-3xl font-semibold tracking-widest" aria-label={`Join code ${code}`}>
           {code}
         </p>
@@ -269,6 +283,33 @@ function JoinCodeCard({ course }: { course: Course }) {
           <RefreshCw aria-hidden="true" />
           New code
         </Button>
+        </div>
+
+        {/* Who gets in with the code: everyone at once, or only after approval. */}
+        <div className="flex items-start gap-3 rounded-lg border p-3">
+          <input
+            id="require-approval"
+            type="checkbox"
+            className="mt-0.5 size-4 shrink-0 accent-primary"
+            checked={requireApproval}
+            aria-busy={isSwitching}
+            onChange={(e) => void toggleApproval(e.target.checked)}
+            aria-describedby="require-approval-help"
+          />
+          <div className="grid gap-1 text-sm">
+            <Label htmlFor="require-approval">Students need my approval to join</Label>
+            <p id="require-approval-help" className="text-muted-foreground">
+              {requireApproval
+                ? 'The code only sends a request. You approve or reject each student under Join requests.'
+                : 'Anyone with the code joins straight away. Turn this on if the code may have been shared too widely.'}
+            </p>
+            {pending > 0 && (
+              <Link to={requestsPath} className="font-medium text-primary underline underline-offset-4">
+                {pending === 1 ? '1 student is' : `${pending} students are`} waiting for approval
+              </Link>
+            )}
+          </div>
+        </div>
       </CardContent>
 
       <AlertDialog open={confirm} onOpenChange={setConfirm}>

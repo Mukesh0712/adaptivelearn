@@ -16,7 +16,7 @@ export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 
 // PATCH /api/courses/:id  (only the fields sent are changed)
 export const updateCourseSchema = z
-  .object({ title, code, description })
+  .object({ title, code, description, requireApproval: z.boolean({ error: 'requireApproval must be true or false' }) })
   .partial()
   .refine((v) => Object.keys(v).length > 0, 'Nothing to update');
 export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;

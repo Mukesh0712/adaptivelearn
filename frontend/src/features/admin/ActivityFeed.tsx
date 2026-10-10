@@ -42,6 +42,8 @@ const ICON: Record<AuditAction, LucideIcon> = {
   'course.student_removed': UserMinus,
   'course.reassigned': ArrowRightLeft,
   'course.deleted': BookX,
+  'course.join_approved': CircleCheck,
+  'course.join_rejected': CircleX,
 }
 
 // One readable sentence per audit entry. Names come from the snapshot saved
@@ -88,6 +90,10 @@ function describe(log: AuditLog): string {
       return `${actor} created a new join code for ${d.title ?? 'a course'}`
     case 'course.student_removed':
       return `${actor} removed ${log.target?.name ?? 'a student'} from ${d.title ?? 'a course'}`
+    case 'course.join_approved':
+      return `${actor} let ${target} join ${d.title ?? 'a course'}`
+    case 'course.join_rejected':
+      return `${actor} declined ${target}'s request to join ${d.title ?? 'a course'}`
   }
 }
 
