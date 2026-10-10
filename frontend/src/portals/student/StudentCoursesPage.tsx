@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { BookOpen, LogOut, MoreHorizontal, Plus } from 'lucide-react'
+import { Link } from 'react-router'
+import { ArrowRight, BookOpen, LogOut, MoreHorizontal, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageMeta } from '@/components/PageMeta'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -13,8 +14,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -114,7 +115,11 @@ function EnrolledCourseCard({ course }: { course: EnrolledCourse }) {
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <CardTitle className="leading-snug break-words">{course.title}</CardTitle>
+            <CardTitle className="leading-snug break-words">
+              <Link to={`/student/courses/${course.id}`} className="hover:underline">
+                {course.title}
+              </Link>
+            </CardTitle>
             {course.code && (
               <Badge variant="secondary" className="mt-1.5">
                 {course.code}
@@ -144,6 +149,16 @@ function EnrolledCourseCard({ course }: { course: EnrolledCourse }) {
         <p>Instructor: {course.instructorName}</p>
         <p className="text-xs">Joined {formatDate(course.joinedAt)}</p>
       </CardContent>
+      <CardFooter>
+        <Link
+          to={`/student/courses/${course.id}`}
+          className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          aria-label={`Open ${course.title}`}
+        >
+          Open course
+          <ArrowRight aria-hidden="true" />
+        </Link>
+      </CardFooter>
 
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
         <AlertDialogContent>

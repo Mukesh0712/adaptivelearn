@@ -1,0 +1,108 @@
+import { useEffect, useRef } from 'react'
+import { Link, useParams } from 'react-router'
+import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
+import { PageMeta } from '@/components/PageMeta'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { parseApiError } from '@/features/auth/apiError'
+import { useLessonQuery } from '@/features/content/contentApi'
+import { Markdown } from '@/features/content/Markdown'
+
+// Student: read one published lesson, with previous/next lesson links.
+export default function LessonReaderPage() {
+  const { courseId = '', lessonId = '' } = useParams()
+  const { data, error, isFetching, refetch } = useLessonQuery({ courseId, lessonId })
+  const heading = useRef<HTMLHeadingElement>(null)
+  const coursePath = `/student/courses/${courseId}`
+  const lessonPath = (id: string) => `${coursePath}/lessons/${id}`
+  const current = data?.lesson.id === lessonId ? data : undefined
+
+  // On "Next", start at the top of the new lesson and move keyboard /
+  // screen-reader focus to its title, as a full page load would.
+  useEffect(() => {
+    if (!current) return
+    window.scrollTo({ top: 0 })
+    heading.current?.focus()
+  }, [current])
+
+  const back = (
+    <Link to={coursePath} className={buttonVariants({ variant: 'ghost', size: 'sm', className: '-ml-2.5' })}>
+      <ArrowLeft aria-hidden="true" />
+      {data?.course.title ?? 'Course'}
+    </Link>
+  )
+
+  if (error && !isFetching) {
+    return (
+      <div className="space-y-4">
+        {back}
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-6 text-center">
+            <p className="text-sm text-red-700 dark:text-red-300">{parseApiError(error).message}</p>
+            <Button variant="outline" size="sm" onClick={() => void refetch()}>
+              Try again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+  if (!current) {
+    return (
+      <div className="space-y-4">
+        {back}
+        <Skeleton className="h-10 w-full max-w-xl" />
+        <Skeleton className="h-64 w-full max-w-3xl rounded-xl" />
+      </div>
+    )
+  }
+
+  const { lesson, previous, next } = current
+  return (
+    <article className="space-y-6">
+      <PageMeta title={lesson.title} />
+      <div className="space-y-1">
+        {back}
+        <p className="text-sm text-muted-foreground">{lesson.moduleTitle}</p>
+        {/* tabIndex -1: focusable by script (see above), not by Tab. */}
+        <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold tracking-tight break-words outline-none">
+          {lesson.title}
+        </h1>
+      </div>
+
+      {lesson.content.trim() ? (
+        <Markdown>{lesson.content}</Markdown>
+      ) : (
+        <p className="text-muted-foreground">This lesson has no text yet.</p>
+      )}
+
+      <nav aria-label="Lessons" className="flex max-w-3xl flex-col gap-2 border-t pt-4 sm:flex-row sm:justify-between">
+        {previous ? (
+          <Link to={lessonPath(previous.id)} className={buttonVariants({ variant: 'outline', className: 'h-auto justify-start py-2' })}>
+            <ChevronLeft aria-hidden="true" />
+            <span className="text-left">
+              <span className="block text-xs text-muted-foreground">Previous</span>
+              <span className="block whitespace-normal">{previous.title}</span>
+            </span>
+          </Link>
+        ) : (
+          <span />
+        )}
+        {next ? (
+          <Link to={lessonPath(next.id)} className={buttonVariants({ className: 'h-auto justify-end py-2 sm:ml-auto' })}>
+            <span className="text-right">
+              <span className="block text-xs">Next</span>
+              <span className="block whitespace-normal">{next.title}</span>
+            </span>
+            <ChevronRight aria-hidden="true" />
+          </Link>
+        ) : (
+          <Link to={coursePath} className={buttonVariants({ variant: 'outline', className: 'sm:ml-auto' })}>
+            Back to the course outline
+          </Link>
+        )}
+      </nav>
+    </article>
+  )
+}

@@ -33,6 +33,7 @@ import { InstructorSelect } from '@/features/admin/InstructorSelect'
 import { FieldError } from '@/features/auth/pages/AuthCard'
 import { CourseFormDialog } from '@/features/courses/CourseFormDialog'
 import { DeleteCourseDialog } from '@/features/courses/DeleteCourseDialog'
+import { ContentCard } from '@/features/content/ContentCard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { StatusBadge } from '@/features/admin/UserBadges'
@@ -52,7 +53,8 @@ const formatDate = (iso: string) => {
   return Number.isNaN(date.getTime()) ? '' : dateFormat.format(date)
 }
 
-// One course: join code (copy / regenerate) and the class list. Shared by
+// One course: join code (copy / regenerate), its content (modules and
+// lessons) and the class list. Shared by
 // the instructor (their own course) and the admin (any course), who also
 // sees who teaches it and can move it to another instructor.
 export default function CourseDetailPage() {
@@ -131,6 +133,8 @@ export default function CourseDetailPage() {
           to use it again.
         </p>
       )}
+
+      <ContentCard courseId={course.id} basePath={isAdmin ? '/admin' : '/instructor'} />
 
       <StudentsCard course={course} />
 
