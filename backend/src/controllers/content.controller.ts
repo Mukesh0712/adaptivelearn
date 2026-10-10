@@ -111,11 +111,18 @@ const courseSummary = (course: CourseDocument) => ({
   status: course.status,
 });
 
+// Upper limits: generous for a semester, and they keep every list short
+// enough to load at once and reorder in one request (the order schema
+// accepts at most 500 ids).
+const MAX_MODULES = 100;
+const MAX_LESSONS_PER_MODULE = 100;
+
 // POST /api/courses/:courseId/modules  { title }
 export async function createModule(req: Request, res: Response) {
   const { course } = await editAccess(req);
   const { title } = req.body as ModuleInput;
   const position = await ModuleModel.countDocuments({ course: course._id }); // goes to the end
+  if (position >= MAX_MODULES) throw ApiError.conflict(`A course can have at most ${MAX_MODULES} modules.`);
   const mod = await ModuleModel.create({ course: course._id, title, position });
   res.status(201).json({ module: { id: mod.id, title: mod.title }, message: `Module "${mod.title}" added` });
 }
@@ -176,6 +183,9 @@ export async function createLesson(req: Request, res: Response) {
   const { course } = await editAccess(req);
   const mod = await moduleIn(course, params(req).moduleId);
   const position = await LessonModel.countDocuments({ module: mod._id });
+  if (position >= MAX_LESSONS_PER_MODULE) {
+    throw ApiError.conflict(`A module can have at most ${MAX_LESSONS_PER_MODULE} lessons. Start a new module.`);
+  }
   const lesson = await LessonModel.create({
     course: course._id,
     module: mod._id,
@@ -404,8 +414,9 @@ export async function downloadResourceFile(req: Request, res: Response) {
   }
   // Our own type (from the allow-list), not the stored one, and always
   // "attachment": the browser saves the file instead of opening it here.
-  res.type(resource.mimeType ?? 'application/octet-stream');
+  // attachment() also guesses a type from the file name, so ours is set after it.
   res.attachment(resource.fileName ?? 'file');
+  res.type(resource.mimeType ?? 'application/octet-stream');
   const length = upstream.headers.get('content-length');
   if (length) res.set('Content-Length', length);
   // Stream it through without holding the whole file in memory. If
