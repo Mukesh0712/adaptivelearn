@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { CircleCheck, UserRoundCheck, XCircle } from 'lucide-react'
 import { useAuth } from '@/app/hooks'
+import { BulkBar } from '@/components/BulkBar'
 import { PageMeta } from '@/components/PageMeta'
 import { Pagination } from '@/components/Pagination'
 import { SubmitButton } from '@/components/SubmitButton'
@@ -83,28 +84,16 @@ export default function ApprovalsPage() {
       </div>
 
       {/* Bulk bar: appears once something is ticked. */}
-      {chosen.length > 0 && (
-        <div
-          role="region"
-          aria-label="Selected requests"
-          className="sticky top-2 z-10 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-background px-4 py-2 shadow-sm"
-        >
-          <p className="text-sm font-medium">{chosen.length} selected</p>
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" disabled={busy} onClick={() => void run('approve', chosen)}>
-              <CircleCheck aria-hidden="true" />
-              Approve selected
-            </Button>
-            <Button size="sm" variant="destructive" disabled={busy} onClick={() => setConfirmReject(chosen)}>
-              <XCircle aria-hidden="true" />
-              Reject selected
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
-              Clear
-            </Button>
-          </div>
-        </div>
-      )}
+      <BulkBar count={chosen.length} onClear={() => setSelected(new Set())}>
+        <Button size="sm" disabled={busy} onClick={() => void run('approve', chosen)}>
+          <CircleCheck aria-hidden="true" />
+          Approve selected
+        </Button>
+        <Button size="sm" variant="destructive" disabled={busy} onClick={() => setConfirmReject(chosen)}>
+          <XCircle aria-hidden="true" />
+          Reject selected
+        </Button>
+      </BulkBar>
 
       <Card className="py-0">
         <CardContent className="px-0">

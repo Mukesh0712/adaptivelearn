@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
 import {
+  bulkCancelInvites,
+  bulkResendInvites,
   changeRole,
   eraseUser,
   changeStatus,
@@ -18,6 +20,7 @@ import {
   setAnyCourseStatus,
 } from '../controllers/adminCourse.controller.js';
 import { courseStatusSchema } from '../validators/course.schema.js';
+import { bulkIdsSchema } from '../validators/common.schema.js';
 import {
   adminCreateCourseSchema,
   changeRoleSchema,
@@ -34,6 +37,8 @@ adminRouter.use(authenticate, authorize('admin'));
 
 adminRouter.get('/users', listUsers);
 adminRouter.post('/invites', validate(inviteSchema), createInvite);
+adminRouter.post('/invites/resend', validate(bulkIdsSchema), bulkResendInvites);
+adminRouter.post('/invites/cancel', validate(bulkIdsSchema), bulkCancelInvites);
 adminRouter.get('/audit-logs', listAuditLogs);
 adminRouter.post('/users/:id/resend-invite', resendInvite);
 adminRouter.post('/users/:id/erase', validate(eraseUserSchema), eraseUser);

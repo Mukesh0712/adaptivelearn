@@ -10,6 +10,7 @@ export interface ApprovalRequest {
   course: { id: string; title: string } | null // the class a student asked to join
 }
 
+// Result of any bulk action (approvals, invites): one outcome per person.
 export interface ApprovalResult {
   results: { id: string; outcome: 'done' | 'already_handled' | 'not_allowed'; by?: string }[]
   message: string // e.g. "3 approved · 1 already handled by someone else"

@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { useSearchParams } from 'react-router'
-import { Search, UserX } from 'lucide-react'
+import { MailPlus, Search, UserX, XCircle } from 'lucide-react'
+import { BulkBar } from '@/components/BulkBar'
+import { SubmitButton } from '@/components/SubmitButton'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { PageMeta } from '@/components/PageMeta'
 import { Pagination } from '@/components/Pagination'
 import { Button } from '@/components/ui/button'
@@ -17,7 +29,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useListUsersQuery } from '@/features/admin/adminApi'
+import {
+  useBulkCancelInvitesMutation,
+  useBulkResendInvitesMutation,
+  useListUsersQuery,
+} from '@/features/admin/adminApi'
+import { showApprovalResult } from '@/features/approvals/showResult'
 import { InviteDialog } from '@/features/admin/InviteDialog'
 import { PendingBanner } from '@/features/admin/PendingBanner'
 import { UserActions } from '@/features/admin/UserActions'
@@ -96,6 +113,33 @@ export default function UsersPage() {
     pageSize: PAGE_SIZE,
   })
 
+  // Bulk mode: when looking at Invited users, rows get checkboxes so several
+  // invites can be resent or cancelled at once.
+  const bulkMode = status === 'invited'
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  const [bulkResend, resending] = useBulkResendInvitesMutation()
+  const [bulkCancel, cancelling] = useBulkCancelInvitesMutation()
+  const selectable = bulkMode ? (data?.users ?? []).filter((u) => u.status === 'invited') : []
+  const chosen = selectable.filter((u) => selected.has(u.id)).map((u) => u.id)
+  const allChecked = selectable.length > 0 && chosen.length === selectable.length
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const runBulk = async (action: 'resend' | 'cancel') => {
+    try {
+      showApprovalResult(await (action === 'resend' ? bulkResend(chosen) : bulkCancel(chosen)).unwrap())
+      setSelected(new Set())
+      setConfirmCancel(false)
+    } catch (err) {
+      toast.error(parseApiError(err).message)
+    }
+  }
+
   const hasFilters = Boolean(urlQuery || role || status)
   const clearFilters = () => {
     setSearch('')
@@ -115,6 +159,19 @@ export default function UsersPage() {
 
       {/* Hidden while already looking at the pending list. */}
       <PendingBanner hidden={status === 'pending'} />
+
+      {bulkMode && (
+        <BulkBar count={chosen.length} onClear={() => setSelected(new Set())}>
+          <Button size="sm" disabled={resending.isLoading} onClick={() => void runBulk('resend')}>
+            <MailPlus aria-hidden="true" />
+            {resending.isLoading ? 'Resending…' : 'Resend selected'}
+          </Button>
+          <Button size="sm" variant="destructive" onClick={() => setConfirmCancel(true)}>
+            <XCircle aria-hidden="true" />
+            Cancel selected
+          </Button>
+        </BulkBar>
+      )}
 
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">
@@ -198,7 +255,19 @@ export default function UsersPage() {
               <TableCaption className="sr-only">Users, newest first</TableCaption>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="pl-4">Name</TableHead>
+                  {bulkMode && (
+                    <TableHead className="w-px pl-4">
+                      <input
+                        type="checkbox"
+                        aria-label="Select all invites on this page"
+                        className="size-4 accent-primary"
+                        checked={allChecked}
+                        disabled={selectable.length === 0}
+                        onChange={() => setSelected(allChecked ? new Set() : new Set(selectable.map((u) => u.id)))}
+                      />
+                    </TableHead>
+                  )}
+                  <TableHead className={bulkMode ? '' : 'pl-4'}>Name</TableHead>
                   <TableHead className="hidden sm:table-cell">Role</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden md:table-cell">Joined</TableHead>
@@ -212,14 +281,27 @@ export default function UsersPage() {
                 {isLoading
                   ? Array.from({ length: 5 }, (_, i) => (
                       <TableRow key={i}>
-                        <TableCell className="pl-4" colSpan={6}>
+                        <TableCell className="pl-4" colSpan={bulkMode ? 7 : 6}>
                           <Skeleton className="h-8 w-full" />
                         </TableCell>
                       </TableRow>
                     ))
                   : data?.users.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="pl-4">
+                      <TableRow key={user.id} data-state={selected.has(user.id) ? 'selected' : undefined}>
+                        {bulkMode && (
+                          <TableCell className="pl-4">
+                            {user.status === 'invited' && (
+                              <input
+                                type="checkbox"
+                                aria-label={`Select ${user.name}`}
+                                className="size-4 accent-primary"
+                                checked={selected.has(user.id)}
+                                onChange={() => toggle(user.id)}
+                              />
+                            )}
+                          </TableCell>
+                        )}
+                        <TableCell className={bulkMode ? '' : 'pl-4'}>
                           <div className="font-medium">
                             {user.name}
                             {user.id === me?.id && (
@@ -265,6 +347,31 @@ export default function UsersPage() {
           onPageChange={(next) => updateParams({ page: String(next) })}
         />
       )}
+      <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Cancel {chosen.length} {chosen.length === 1 ? 'invite' : 'invites'}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Their invite links stop working. You can reactivate them later and send new invites.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep</AlertDialogCancel>
+            <SubmitButton
+              type="button"
+              variant="destructive"
+              className="sm:w-auto"
+              loading={cancelling.isLoading}
+              loadingText="Cancelling…"
+              onClick={() => void runBulk('cancel')}
+            >
+              Cancel invites
+            </SubmitButton>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

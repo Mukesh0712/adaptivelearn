@@ -20,6 +20,7 @@ import {
   type ChangeStatusInput,
   type InviteInput,
 } from '../validators/admin.schema.js';
+import type { BulkIdsInput } from '../validators/common.schema.js';
 
 
 // Lists users for the Admin "Users" page, newest first, one page at a time.
@@ -257,6 +258,66 @@ export async function changeStatus(req: Request, res: Response) {
         ? `${updated.name} has been reactivated and can log in again`
         : `${updated.name} is back to "invited". Use "Resend invite" to send them a new link.`,
   });
+}
+
+type BulkOutcome = 'done' | 'already_handled';
+
+// "3 resent · 1 already handled by someone else"
+const bulkSummary = (verb: string, results: { outcome: BulkOutcome }[]) => {
+  const done = results.filter((r) => r.outcome === 'done').length;
+  const other = results.length - done;
+  return other ? `${done} ${verb} · ${other} already handled by someone else` : `${done} ${verb}`;
+};
+
+// POST /api/admin/invites/resend  { ids } : a new link for each pending
+// invite (old links stop working). Each one is a conditional update
+// ("only if still invited"), like approvals.
+export async function bulkResendInvites(req: Request, res: Response) {
+  const { ids } = req.body as BulkIdsInput;
+  const results: { id: string; outcome: BulkOutcome }[] = [];
+  const emails: Promise<unknown>[] = [];
+  for (const id of ids) {
+    const invite = newInvite();
+    const user = await UserModel.findOneAndUpdate(
+      { _id: id, status: 'invited', role: { $ne: 'admin' } },
+      { ...invite.fields, invitedBy: req.user!.id },
+      { returnDocument: 'after' },
+    );
+    if (!user) {
+      results.push({ id, outcome: 'already_handled' });
+      continue;
+    }
+    // Emails are sent in parallel; one failure doesn't stop the others.
+    emails.push(
+      emailInvite(user, req.user!.id, invite.link).then((emailSent) =>
+        audit(req.user!.id, 'invite.resent', user._id, { name: user.name, email: user.email, role: user.role, emailSent }),
+      ),
+    );
+    results.push({ id, outcome: 'done' });
+  }
+  await Promise.allSettled(emails);
+  res.json({ results, message: bulkSummary('resent', results) });
+}
+
+// POST /api/admin/invites/cancel  { ids } : the links stop working and the
+// accounts become deactivated (same as "Cancel invite" on one person).
+export async function bulkCancelInvites(req: Request, res: Response) {
+  const { ids } = req.body as BulkIdsInput;
+  const results: { id: string; outcome: BulkOutcome }[] = [];
+  for (const id of ids) {
+    const user = await UserModel.findOneAndUpdate(
+      { _id: id, status: 'invited', role: { $ne: 'admin' } },
+      { status: 'deactivated', refreshTokenHash: null, inviteTokenHash: null, inviteExpiresAt: null },
+      { returnDocument: 'after' },
+    );
+    if (!user) {
+      results.push({ id, outcome: 'already_handled' });
+      continue;
+    }
+    await audit(req.user!.id, 'user.deactivated', user._id, { name: user.name, wasInvited: true });
+    results.push({ id, outcome: 'done' });
+  }
+  res.json({ results, message: bulkSummary('cancelled', results) });
 }
 
 // POST /api/admin/users/:id/erase : "right to erasure" (India's DPDP Act).

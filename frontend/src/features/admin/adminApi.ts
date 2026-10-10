@@ -1,4 +1,5 @@
 import { baseApi } from '@/services/baseApi'
+import type { ApprovalResult } from '@/features/approvals/approvalsApi'
 import type {
   AssignableRole,
   AdminCourse,
@@ -27,6 +28,15 @@ export const adminApi = baseApi.injectEndpoints({
     eraseUser: build.mutation<{ message: string }, { id: string; confirmEmail: string }>({
       query: ({ id, confirmEmail }) => ({ url: `/admin/users/${id}/erase`, method: 'POST', body: { confirmEmail } }),
       invalidatesTags: ['Users', 'AuditLogs', 'Courses'],
+    }),
+    // Bulk invites: one outcome per person ("done" or "already handled").
+    bulkResendInvites: build.mutation<ApprovalResult, string[]>({
+      query: (ids) => ({ url: '/admin/invites/resend', method: 'POST', body: { ids } }),
+      invalidatesTags: ['Users', 'AuditLogs'],
+    }),
+    bulkCancelInvites: build.mutation<ApprovalResult, string[]>({
+      query: (ids) => ({ url: '/admin/invites/cancel', method: 'POST', body: { ids } }),
+      invalidatesTags: ['Users', 'AuditLogs'],
     }),
     resendInvite: build.mutation<InviteResponse, string>({
       query: (id) => ({ url: `/admin/users/${id}/resend-invite`, method: 'POST' }),
@@ -70,6 +80,8 @@ export const {
   useListUsersQuery,
   useInviteUserMutation,
   useResendInviteMutation,
+  useBulkResendInvitesMutation,
+  useBulkCancelInvitesMutation,
   useEraseUserMutation,
   useChangeRoleMutation,
   useChangeStatusMutation,
