@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { LESSON_STATUSES } from '../models/Lesson.js';
+import { parseVideoUrl } from '../utils/videoUrl.js';
 
 const objectId = z.string().regex(/^[a-f0-9]{24}$/);
 
@@ -7,6 +8,7 @@ export const contentParamsSchema = z.object({
   courseId: objectId,
   moduleId: objectId.optional(),
   lessonId: objectId.optional(),
+  resourceId: objectId.optional(),
 });
 
 export const moduleSchema = z.object({
@@ -36,3 +38,27 @@ export const orderSchema = z.object({
   ids: z.array(objectId).min(1).max(500),
 });
 export type OrderInput = z.infer<typeof orderSchema>;
+
+// POST …/lessons/:lessonId/resources : add a video or a link.
+const resourceTitle = z.string().trim().max(150, 'Title must be at most 150 characters').default('');
+const resourceUrl = z.string().trim().min(1, 'Paste a link').max(2000, 'That link is too long');
+export const newResourceSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('video'),
+    title: resourceTitle,
+    url: resourceUrl.refine((u) => parseVideoUrl(u) !== null, 'Paste a YouTube or Vimeo video link'),
+  }),
+  z.object({
+    kind: z.literal('link'),
+    title: resourceTitle,
+    url: resourceUrl.refine((u) => {
+      try {
+        const { protocol, hostname } = new URL(u);
+        return (protocol === 'https:' || protocol === 'http:') && hostname.includes('.');
+      } catch {
+        return false;
+      }
+    }, 'Enter a full web address, starting with https://'),
+  }),
+]);
+export type NewResourceInput = z.infer<typeof newResourceSchema>;

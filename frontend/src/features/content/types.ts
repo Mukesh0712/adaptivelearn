@@ -27,6 +27,21 @@ export interface CourseContent {
   modules: OutlineModule[]
 }
 
+export type ResourceKind = 'video' | 'link'
+export const MAX_RESOURCES = 20
+
+// A video or link attached to a lesson (videos carry the parsed ID).
+export interface Resource {
+  id: string
+  kind: ResourceKind
+  title: string
+  url: string
+  provider?: 'youtube' | 'vimeo'
+  videoId?: string
+  hash?: string
+  start?: number
+}
+
 export interface Lesson {
   id: string
   course: string
@@ -36,6 +51,7 @@ export interface Lesson {
   content: string // Markdown
   status: LessonStatus
   publishedAt: string | null
+  resources: Resource[]
   createdAt: string
   updatedAt: string
 }

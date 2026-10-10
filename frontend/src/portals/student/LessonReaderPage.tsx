@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { parseApiError } from '@/features/auth/apiError'
 import { useLessonQuery } from '@/features/content/contentApi'
 import { Markdown } from '@/features/content/Markdown'
+import { LinkCard, VideoEmbed } from '@/features/content/Resources'
 
 // Student: read one published lesson, with previous/next lesson links.
 export default function LessonReaderPage() {
@@ -59,6 +60,8 @@ export default function LessonReaderPage() {
   }
 
   const { lesson, previous, next } = current
+  const videos = lesson.resources.filter((r) => r.kind === 'video')
+  const links = lesson.resources.filter((r) => r.kind === 'link')
   return (
     <article className="space-y-6">
       <PageMeta title={lesson.title} />
@@ -71,10 +74,33 @@ export default function LessonReaderPage() {
         </h1>
       </div>
 
+      {videos.length > 0 && (
+        <div className="grid gap-6">
+          {videos.map((v) => (
+            <VideoEmbed key={v.id} resource={v} />
+          ))}
+        </div>
+      )}
+
       {lesson.content.trim() ? (
         <Markdown>{lesson.content}</Markdown>
       ) : (
-        <p className="text-muted-foreground">This lesson has no text yet.</p>
+        !videos.length && <p className="text-muted-foreground">This lesson has no text yet.</p>
+      )}
+
+      {links.length > 0 && (
+        <section aria-labelledby="links-heading" className="max-w-3xl space-y-3">
+          <h2 id="links-heading" className="text-lg font-semibold">
+            Further reading
+          </h2>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {links.map((l) => (
+              <li key={l.id}>
+                <LinkCard resource={l} />
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <nav aria-label="Lessons" className="flex max-w-3xl flex-col gap-2 border-t pt-4 sm:flex-row sm:justify-between">

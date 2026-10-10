@@ -26,6 +26,7 @@ import { formatDateTime } from '@/lib/dates'
 import { useDeleteLessonMutation, useLessonQuery, useUpdateLessonMutation } from './contentApi'
 import { LessonStatusBadge } from './LessonStatusBadge'
 import { Markdown } from './Markdown'
+import { ResourcesEditor } from './ResourcesEditor'
 import { LESSON_CONTENT_MAX, LESSON_TITLE_MAX, type Lesson, type LessonStatus } from './types'
 
 // Instructor/admin: write one lesson in Markdown, preview it, publish it.
@@ -249,6 +250,8 @@ function Editor({
           Delete lesson
         </Button>
       </div>
+
+      <ResourcesEditor lesson={lesson} courseId={courseId} />
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

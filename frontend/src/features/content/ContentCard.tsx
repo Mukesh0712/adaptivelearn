@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { ArrowDown, ArrowUp, FileText, Layers, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
+import { FileText, Layers, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { SubmitButton } from '@/components/SubmitButton'
 import {
@@ -32,6 +32,8 @@ import {
   useReorderModulesMutation,
 } from './contentApi'
 import { LessonStatusBadge } from './LessonStatusBadge'
+import { MoveButtons } from './MoveButtons'
+import { moved } from './utils'
 import { TitleDialog } from './TitleDialog'
 import { LESSON_TITLE_MAX, MODULE_TITLE_MAX, type OutlineModule } from './types'
 
@@ -40,13 +42,6 @@ type DialogState =
   | { kind: 'rename'; module: OutlineModule }
   | { kind: 'addLesson'; module: OutlineModule }
   | null
-
-// Moves one id up or down in a list, giving the complete new order.
-function moved(ids: string[], index: number, by: -1 | 1) {
-  const next = [...ids]
-  ;[next[index], next[index + by]] = [next[index + by]!, next[index]!]
-  return next
-}
 
 // The course's modules and lessons, on the course page (instructor and
 // admin). Add, rename, reorder and delete modules; add and reorder lessons.
@@ -288,48 +283,5 @@ export function ContentCard({ courseId, basePath }: { courseId: string; basePath
         </AlertDialogContent>
       </AlertDialog>
     </Card>
-  )
-}
-
-// Up/down arrows. At the ends they're aria-disabled rather than disabled,
-// so keyboard focus isn't lost when an item reaches the top or bottom.
-function MoveButtons({
-  label,
-  index,
-  count,
-  onMove,
-}: {
-  label: string
-  index: number
-  count: number
-  onMove: (by: -1 | 1) => void
-}) {
-  if (count < 2) return null
-  const first = index === 0
-  const last = index === count - 1
-  const cls = 'aria-disabled:cursor-not-allowed aria-disabled:opacity-40'
-  return (
-    <div className="flex shrink-0">
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className={cls}
-        aria-label={`Move ${label} up`}
-        aria-disabled={first}
-        onClick={() => !first && onMove(-1)}
-      >
-        <ArrowUp aria-hidden="true" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className={cls}
-        aria-label={`Move ${label} down`}
-        aria-disabled={last}
-        onClick={() => !last && onMove(1)}
-      >
-        <ArrowDown aria-hidden="true" />
-      </Button>
-    </div>
   )
 }

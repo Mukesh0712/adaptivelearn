@@ -3,6 +3,25 @@ import { Schema, model, type InferSchemaType, type HydratedDocument } from 'mong
 export const LESSON_STATUSES = ['draft', 'published'] as const;
 export type LessonStatus = (typeof LESSON_STATUSES)[number];
 
+export const RESOURCE_KINDS = ['video', 'link'] as const;
+export type ResourceKind = (typeof RESOURCE_KINDS)[number];
+export const MAX_RESOURCES = 20;
+
+// A video or a link attached to a lesson, stored inside the lesson document
+// (always read together with it, never on its own).
+//  - video: only the provider and the video ID are kept (see utils/videoUrl.ts),
+//    plus the link as pasted, to show the instructor;
+//  - link: any http(s) address, shown to students as a card.
+const resourceSchema = new Schema({
+  kind: { type: String, enum: RESOURCE_KINDS, required: true },
+  title: { type: String, trim: true, maxlength: 150, default: '' },
+  url: { type: String, required: true, maxlength: 2000 },
+  provider: { type: String, enum: ['youtube', 'vimeo'] },
+  videoId: { type: String },
+  hash: { type: String },
+  start: { type: Number },
+});
+
 const lessonSchema = new Schema(
   {
     // course is stored too (not only module) so "every lesson of a course"
@@ -18,6 +37,8 @@ const lessonSchema = new Schema(
     // Drafts are visible only to the instructor (and admins), never students.
     status: { type: String, enum: LESSON_STATUSES, default: 'draft' },
     publishedAt: { type: Date, default: null },
+    // Shown in this order: videos above the text, links below it.
+    resources: { type: [resourceSchema], default: [] },
   },
   {
     timestamps: true,
@@ -26,6 +47,7 @@ const lessonSchema = new Schema(
         ret.id = String(ret._id);
         ret.module = String(ret.module);
         ret.course = String(ret.course);
+        ret.resources = ((ret.resources ?? []) as Record<string, unknown>[]).map(({ _id, ...r }) => ({ id: String(_id), ...r }));
         delete ret._id;
         delete ret.__v;
         return ret;

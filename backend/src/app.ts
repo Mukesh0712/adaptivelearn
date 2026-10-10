@@ -37,6 +37,9 @@ app.use(
       directives: {
         scriptSrc: ["'self'", ...analytics],
         connectSrc: ["'self'", ...analytics],
+        // Lesson videos: only the YouTube (privacy-enhanced) and Vimeo
+        // players may be shown inside the page, nothing else.
+        frameSrc: ['https://www.youtube-nocookie.com', 'https://player.vimeo.com'],
       },
     },
   }),

@@ -2,12 +2,14 @@ import type { Request, Response } from 'express';
 import type { Types } from 'mongoose';
 import { CourseModel, type CourseDocument } from '../models/Course.js';
 import { EnrollmentModel } from '../models/Enrollment.js';
-import { LessonModel } from '../models/Lesson.js';
+import { LessonModel, MAX_RESOURCES } from '../models/Lesson.js';
 import { ModuleModel } from '../models/Module.js';
 import { ApiError } from '../utils/ApiError.js';
+import { parseVideoUrl } from '../utils/videoUrl.js';
 import {
   contentParamsSchema,
   type ModuleInput,
+  type NewResourceInput,
   type NewLessonInput,
   type OrderInput,
   type UpdateLessonInput,
@@ -228,4 +230,49 @@ export async function deleteLesson(req: Request, res: Response) {
   // Close the gap so positions stay 0, 1, 2…
   await LessonModel.updateMany({ module: lesson.module, position: { $gt: lesson.position } }, { $inc: { position: -1 } });
   res.json({ message: `Lesson "${lesson.title}" deleted` });
+}
+
+// POST /api/courses/:courseId/lessons/:lessonId/resources  { kind, url, title? }
+// Saved straight away (not with the lesson text), like file uploads later.
+export async function addResource(req: Request, res: Response) {
+  const access = await editAccess(req);
+  const lesson = await lessonIn(req, access);
+  if (lesson.resources.length >= MAX_RESOURCES) {
+    throw ApiError.conflict(`A lesson can have at most ${MAX_RESOURCES} videos and links.`);
+  }
+  const { kind, url, title } = req.body as NewResourceInput;
+  // The validator already checked the video link, so this always succeeds.
+  const video = kind === 'video' ? parseVideoUrl(url) : null;
+  lesson.resources.push({ kind, url, title, ...video });
+  await lesson.save();
+  const added = lesson.toJSON().resources.at(-1);
+  res.status(201).json({ resource: added, message: kind === 'video' ? 'Video added' : 'Link added' });
+}
+
+// DELETE /api/courses/:courseId/lessons/:lessonId/resources/:resourceId
+export async function deleteResource(req: Request, res: Response) {
+  const access = await editAccess(req);
+  const lesson = await lessonIn(req, access);
+  const { resourceId } = params(req);
+  const resource = resourceId ? lesson.resources.id(resourceId) : null;
+  if (!resource) throw ApiError.notFound('That video or link was already removed');
+  const kind = resource.kind;
+  resource.deleteOne();
+  await lesson.save();
+  res.json({ message: kind === 'video' ? 'Video removed' : 'Link removed' });
+}
+
+// PUT /api/courses/:courseId/lessons/:lessonId/resources/order  { ids }
+export async function reorderResources(req: Request, res: Response) {
+  const access = await editAccess(req);
+  const lesson = await lessonIn(req, access);
+  const { ids } = req.body as OrderInput;
+  const have = new Set(lesson.resources.map((r) => String(r._id)));
+  if (ids.length !== have.size || new Set(ids).size !== ids.length || !ids.every((id) => have.has(id))) {
+    throw ApiError.conflict('The list changed since you loaded it. Refresh and try again.');
+  }
+  const byId = new Map(lesson.resources.map((r) => [String(r._id), r.toObject()]));
+  lesson.set('resources', ids.map((id) => byId.get(id)));
+  await lesson.save();
+  res.json({ message: 'Order saved' });
 }

@@ -1,5 +1,5 @@
 import { baseApi } from '@/services/baseApi'
-import type { CourseContent, Lesson, LessonChanges, LessonResponse } from './types'
+import type { CourseContent, Lesson, LessonChanges, LessonResponse, Resource, ResourceKind } from './types'
 
 type Message = { message: string }
 type CourseArg = { courseId: string }
@@ -89,6 +89,46 @@ export const contentApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Content'],
     }),
+    // Videos and links are saved straight away, separately from the text.
+    addResource: build.mutation<
+      { resource: Resource } & Message,
+      CourseArg & { lessonId: string; kind: ResourceKind; url: string; title: string }
+    >({
+      query: ({ courseId, lessonId, ...body }) => ({
+        url: `/courses/${courseId}/lessons/${lessonId}/resources`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Content'],
+    }),
+    deleteResource: build.mutation<Message, CourseArg & { lessonId: string; resourceId: string }>({
+      query: ({ courseId, lessonId, resourceId }) => ({
+        url: `/courses/${courseId}/lessons/${lessonId}/resources/${resourceId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Content'],
+    }),
+    reorderResources: build.mutation<Message, CourseArg & { lessonId: string; ids: string[] }>({
+      query: ({ courseId, lessonId, ids }) => ({
+        url: `/courses/${courseId}/lessons/${lessonId}/resources/order`,
+        method: 'PUT',
+        body: { ids },
+      }),
+      // Instant, like the module/lesson arrows above.
+      async onQueryStarted({ courseId, lessonId, ids }, { dispatch, queryFulfilled }) {
+        const patch = dispatch(
+          contentApi.util.updateQueryData('lesson', { courseId, lessonId }, (draft) => {
+            draft.lesson.resources.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
+          }),
+        )
+        try {
+          await queryFulfilled
+        } catch {
+          patch.undo()
+          dispatch(contentApi.util.invalidateTags(['Content']))
+        }
+      },
+    }),
     deleteLesson: build.mutation<Message, CourseArg & { lessonId: string }>({
       query: ({ courseId, lessonId }) => ({ url: `/courses/${courseId}/lessons/${lessonId}`, method: 'DELETE' }),
       invalidatesTags: ['Content'],
@@ -107,4 +147,7 @@ export const {
   useLessonQuery,
   useUpdateLessonMutation,
   useDeleteLessonMutation,
+  useAddResourceMutation,
+  useDeleteResourceMutation,
+  useReorderResourcesMutation,
 } = contentApi

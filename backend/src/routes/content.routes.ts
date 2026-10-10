@@ -12,8 +12,17 @@ import {
   reorderLessons,
   reorderModules,
   updateLesson,
+  addResource,
+  deleteResource,
+  reorderResources,
 } from '../controllers/content.controller.js';
-import { moduleSchema, newLessonSchema, orderSchema, updateLessonSchema } from '../validators/content.schema.js';
+import {
+  moduleSchema,
+  newLessonSchema,
+  newResourceSchema,
+  orderSchema,
+  updateLessonSchema,
+} from '../validators/content.schema.js';
 
 // Course content, mounted at /api/courses/:courseId. Who may read or change
 // it is decided inside, per request (instructor/admin edit, enrolled
@@ -35,3 +44,6 @@ contentRouter.put('/modules/:moduleId/lessons/order', authenticate, validate(ord
 contentRouter.get('/lessons/:lessonId', authenticate, getLesson);
 contentRouter.patch('/lessons/:lessonId', authenticate, validate(updateLessonSchema), updateLesson);
 contentRouter.delete('/lessons/:lessonId', authenticate, deleteLesson);
+contentRouter.post('/lessons/:lessonId/resources', authenticate, validate(newResourceSchema), addResource);
+contentRouter.put('/lessons/:lessonId/resources/order', authenticate, validate(orderSchema), reorderResources);
+contentRouter.delete('/lessons/:lessonId/resources/:resourceId', authenticate, deleteResource);
