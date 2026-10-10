@@ -65,7 +65,9 @@ function describe(log: AuditLog): string {
     case 'user.reactivated':
       return `${actor} reactivated ${target}`
     case 'user.approved':
-      return `${actor} approved ${target} as ${label(d.role)}`
+      return d.title
+        ? `${actor} approved ${target} as ${label(d.role)} and added them to ${d.title}`
+        : `${actor} approved ${target} as ${label(d.role)}`
     case 'user.rejected':
       return `${actor} rejected the sign-up from ${d.name ?? 'someone'} (${label(d.role)})`
     case 'user.erased':

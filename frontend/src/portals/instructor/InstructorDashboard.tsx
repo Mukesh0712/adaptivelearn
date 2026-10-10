@@ -13,6 +13,7 @@ import { parseApiError } from '@/features/auth/apiError'
 import { CourseFormDialog } from '@/features/courses/CourseFormDialog'
 import { formatJoinCode } from '@/features/courses/joinCode'
 import { useInstructorDashboardQuery } from '@/features/dashboard/dashboardApi'
+import { PendingBanner } from '@/features/admin/PendingBanner'
 import { timeAgo } from '@/lib/dates'
 
 export default function InstructorDashboard() {
@@ -34,6 +35,8 @@ export default function InstructorDashboard() {
           New course
         </Button>
       </div>
+
+      <PendingBanner />
 
       {error ? (
         <Card>

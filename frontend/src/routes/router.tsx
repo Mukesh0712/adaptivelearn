@@ -6,6 +6,7 @@ import { GuestRoute, HomeRedirect, ProtectedRoute, RoleRoute } from './guards'
 import {
   AcceptInvitePage,
   AdminActivityPage,
+  ApprovalsPage,
   AdminCoursesPage,
   AdminDashboard,
   AdminUsersPage,
@@ -78,6 +79,7 @@ export const router = createBrowserRouter([
                   { index: true, element: <InstructorDashboard /> },
                   { path: 'courses', element: <InstructorCoursesPage /> },
                   { path: 'courses/:courseId', element: <InstructorCourseDetailPage /> },
+                  { path: 'requests', element: <ApprovalsPage /> },
                 ],
               },
               {
@@ -95,6 +97,7 @@ export const router = createBrowserRouter([
                 children: [
                   { index: true, element: <AdminDashboard /> },
                   { path: 'users', element: <AdminUsersPage /> },
+                  { path: 'approvals', element: <ApprovalsPage /> },
                   { path: 'courses', element: <AdminCoursesPage /> },
                   // Same page as the instructor's; the admin sees extra controls.
                   { path: 'courses/:courseId', element: <InstructorCourseDetailPage /> },

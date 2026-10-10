@@ -36,8 +36,15 @@ export const registerSchema = z
     role: z.enum(SELF_REGISTER_ROLES, { error: 'Please choose your role' }),
     acceptTerms: z.literal(true, { error: 'Please accept the Terms and Privacy Policy' }),
     website: z.string(),
+    joinCode: z.string(),
   })
   .refine((v) => v.password === v.confirmPassword, passwordsMatch)
+  // Students need their class code (it decides which instructor approves them).
+  .refine((v) => v.role !== 'student' || v.joinCode.replace('-', '').length === 6, {
+    path: ['joinCode'],
+    message: 'Enter the 6-character class code from your instructor',
+    when: (payload: { value: unknown }) => (payload.value as { role?: unknown }).role === 'student',
+  })
 
 export const forgotPasswordSchema = z.object({ email, website: z.string() })
 

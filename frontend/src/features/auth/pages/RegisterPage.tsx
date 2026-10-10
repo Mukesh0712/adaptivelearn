@@ -11,6 +11,7 @@ import { ROLE_LABEL, type SelfRegisterRole } from '@/lib/roles'
 import { useRegisterMutation } from '../authApi'
 import { registerSchema } from '../schemas'
 import { RoleCards } from '../RoleCards'
+import { tidyJoinCodeInput } from '@/features/courses/joinCode'
 import { useAuthForm } from '../useAuthForm'
 import { AuthCard, FieldError, FormError } from './AuthCard'
 import { PageMeta } from '@/components/PageMeta'
@@ -28,6 +29,7 @@ export default function RegisterPage() {
       password: '',
       confirmPassword: '',
       role: '' as SelfRegisterRole | '', // no default: the user must choose
+      joinCode: '',
       acceptTerms: false,
       website: '',
     })
@@ -39,9 +41,17 @@ export default function RegisterPage() {
     if (!validate()) return
     try {
       // confirmPassword is only checked in the browser; it isn't sent.
-      const { name, email, password, role, acceptTerms, website } = values
+      const { name, email, password, role, acceptTerms, website, joinCode } = values
       if (!role) return // validate() already reported it
-      const { message } = await register({ name, email, password, role, acceptTerms, website }).unwrap()
+      const { message } = await register({
+        name,
+        email,
+        password,
+        role,
+        acceptTerms,
+        website,
+        ...(role === 'student' ? { joinCode } : {}),
+      }).unwrap()
       setDoneMessage(message)
     } catch (err) {
       handleServerError(err)
@@ -128,6 +138,32 @@ export default function RegisterPage() {
         </div>
 
         <RoleCards value={values.role} onChange={(role) => setField('role', role)} error={errors.role} />
+
+        {/* Students name their class: that course's instructor approves them. */}
+        {values.role === 'student' && (
+          <div className="grid gap-2">
+            <Label htmlFor="joinCode">Class code</Label>
+            <Input
+              {...fieldProps('joinCode')}
+              aria-describedby={errors.joinCode ? 'joinCode-error' : 'joinCode-hint'}
+              name="joinCode"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              placeholder="K7Q-2MX"
+              value={values.joinCode}
+              onChange={(e) => setField('joinCode', tidyJoinCodeInput(e.target.value))}
+              className="font-mono tracking-widest uppercase"
+            />
+            {errors.joinCode ? (
+              <FieldError id="joinCode-error" message={errors.joinCode} />
+            ) : (
+              <p id="joinCode-hint" className="text-xs text-muted-foreground">
+                The 6-character code your instructor gave you. They'll approve your account.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="grid gap-2">
           <div className="flex items-start gap-2">

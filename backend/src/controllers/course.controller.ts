@@ -256,3 +256,20 @@ export async function deleteCourse(req: Request, res: Response) {
   await audit(req.user!.id, 'course.deleted', null, { courseId: course.id, title: course.title });
   res.json({ message: `"${course.title}" deleted` });
 }
+
+// Enrols a student (used when an approved sign-up named a course). Already
+// enrolled is fine. Returns false if the course is no longer active.
+export async function enrollStudent(
+  courseId: Types.ObjectId | string,
+  studentId: Types.ObjectId | string,
+): Promise<boolean> {
+  const course = await CourseModel.findOne({ _id: courseId, status: 'active' });
+  if (!course) return false;
+  try {
+    await EnrollmentModel.create({ course: course._id, student: studentId });
+  } catch (err) {
+    if (!isDuplicateKey(err)) throw err;
+  }
+  if (!course.hasHadStudents) await CourseModel.updateOne({ _id: course._id }, { hasHadStudents: true });
+  return true;
+}

@@ -1,4 +1,4 @@
-import { BookOpen, History, LayoutDashboard, UsersRound, type LucideIcon } from 'lucide-react'
+import { BookOpen, History, LayoutDashboard, UserRoundCheck, UsersRound, type LucideIcon } from 'lucide-react'
 import { ROLE_HOME, type Role } from '@/lib/roles'
 
 export interface NavItem {
@@ -17,11 +17,13 @@ export const NAV_ITEMS: Record<Role, NavItem[]> = {
   instructor: [
     { title: 'Dashboard', to: ROLE_HOME.instructor, icon: LayoutDashboard },
     { title: 'My courses', to: `${ROLE_HOME.instructor}/courses`, icon: BookOpen },
+    { title: 'Join requests', to: `${ROLE_HOME.instructor}/requests`, icon: UserRoundCheck },
   ],
   parent: [{ title: 'Dashboard', to: ROLE_HOME.parent, icon: LayoutDashboard }],
   admin: [
     { title: 'Dashboard', to: ROLE_HOME.admin, icon: LayoutDashboard },
     { title: 'Users', to: `${ROLE_HOME.admin}/users`, icon: UsersRound },
+    { title: 'Approvals', to: `${ROLE_HOME.admin}/approvals`, icon: UserRoundCheck },
     { title: 'Courses', to: `${ROLE_HOME.admin}/courses`, icon: BookOpen },
     { title: 'Activity', to: `${ROLE_HOME.admin}/activity`, icon: History },
   ],

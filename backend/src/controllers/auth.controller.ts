@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { env, isProduction } from '../config/env.js';
 import { UserModel, type UserDocument, type UserStatus } from '../models/User.js';
+import { CourseModel } from '../models/Course.js';
 import { ApiError } from '../utils/ApiError.js';
 import {
   generateLinkToken,
@@ -64,7 +65,20 @@ function sendSession(
 // duplicate email is rejected by the unique index (→ 409 in errorHandler).
 // The response doesn't include the user: there is nothing to do with it yet.
 export async function register(req: Request, res: Response) {
-  const { name, email, password, role } = req.body as RegisterInput;
+  const { name, email, password, role, joinCode } = req.body as RegisterInput;
+
+  // A student names their class: the request then goes to that course's
+  // instructor. A wrong code creates no account. (The register rate limit
+  // keeps this from being used to guess codes.)
+  let requestedCourse = null;
+  if (role === 'student') {
+    requestedCourse = await CourseModel.findOne({ joinCode, status: 'active' }).select('_id');
+    if (!requestedCourse) {
+      throw ApiError.badRequest('Validation failed', {
+        joinCode: ['No class found with that code. Check it with your instructor.'],
+      });
+    }
+  }
 
   const user = await UserModel.create({
     name,
@@ -72,13 +86,17 @@ export async function register(req: Request, res: Response) {
     password: await hashPassword(password),
     role,
     status: 'pending',
+    requestedCourse: requestedCourse?._id ?? null,
     termsAcceptedAt: new Date(),
   });
 
   if (!isProduction) console.log(`Registration: ${user.email} (${user.role}) is waiting for approval`);
   res.status(201).json({
     pending: true,
-    message: "Thanks! Your account was created and is waiting for an administrator's approval. We'll email you as soon as it's approved.",
+    message:
+      role === 'student'
+        ? "Thanks! Your account was created. Your instructor will review your request, and we'll email you as soon as it's approved."
+        : "Thanks! Your account was created and is waiting for an administrator's approval. We'll email you as soon as it's approved.",
   });
 }
 
