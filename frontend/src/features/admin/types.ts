@@ -62,6 +62,18 @@ export interface InviteResponse {
   message: string
 }
 
+// Activity page filters (all optional). from/to are ISO moments.
+export type AuditCategory = 'approvals' | 'invites' | 'accounts' | 'courses'
+export interface AuditLogParams {
+  page: number
+  pageSize: number
+  category?: AuditCategory
+  actor?: string
+  from?: string
+  to?: string
+  q?: string
+}
+
 // Must match AUDIT_ACTIONS in backend/src/models/AuditLog.ts.
 export type AuditAction =
   | 'user.invited'

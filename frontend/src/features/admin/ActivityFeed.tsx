@@ -102,6 +102,7 @@ export function ActivityFeed({
   onRetry,
   skeletonRows = 3,
   showDate = false,
+  emptyText = 'Nothing yet. Invites you send will appear here.',
 }: {
   logs?: AuditLog[]
   error?: unknown
@@ -109,6 +110,7 @@ export function ActivityFeed({
   onRetry: () => void
   skeletonRows?: number
   showDate?: boolean
+  emptyText?: string
 }) {
   if (error) {
     return (
@@ -130,7 +132,7 @@ export function ActivityFeed({
     )
   }
   if (!logs?.length) {
-    return <p className="text-sm text-muted-foreground">Nothing yet. Invites you send will appear here.</p>
+    return <p className="text-sm text-muted-foreground">{emptyText}</p>
   }
 
   return (

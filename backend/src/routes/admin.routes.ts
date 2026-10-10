@@ -8,6 +8,7 @@ import {
   eraseUser,
   changeStatus,
   createInvite,
+  listAuditActors,
   listAuditLogs,
   listUsers,
   resendInvite,
@@ -40,6 +41,7 @@ adminRouter.post('/invites', validate(inviteSchema), createInvite);
 adminRouter.post('/invites/resend', validate(bulkIdsSchema), bulkResendInvites);
 adminRouter.post('/invites/cancel', validate(bulkIdsSchema), bulkCancelInvites);
 adminRouter.get('/audit-logs', listAuditLogs);
+adminRouter.get('/audit-logs/actors', listAuditActors);
 adminRouter.post('/users/:id/resend-invite', resendInvite);
 adminRouter.post('/users/:id/erase', validate(eraseUserSchema), eraseUser);
 adminRouter.patch('/users/:id/role', validate(changeRoleSchema), changeRole);

@@ -4,6 +4,7 @@ import type {
   AssignableRole,
   AdminCourse,
   AuditLog,
+  AuditLogParams,
   InviteRequest,
   InviteResponse,
   ListCoursesParams,
@@ -69,8 +70,13 @@ export const adminApi = baseApi.injectEndpoints({
       query: ({ id, instructorId }) => ({ url: `/admin/courses/${id}/instructor`, method: 'PATCH', body: { instructorId } }),
       invalidatesTags: ['Courses', 'AuditLogs'],
     }),
-    listAuditLogs: build.query<Paginated<{ logs: AuditLog[] }>, { page: number; pageSize: number }>({
+    listAuditLogs: build.query<Paginated<{ logs: AuditLog[]; retentionDays?: number }>, AuditLogParams>({
       query: (params) => ({ url: '/admin/audit-logs', params }),
+      providesTags: ['AuditLogs'],
+    }),
+    // People who appear as "who did it" (for the Activity filter).
+    listAuditActors: build.query<{ actors: { id: string; name: string; role: string }[] }, void>({
+      query: () => '/admin/audit-logs/actors',
       providesTags: ['AuditLogs'],
     }),
   }),
@@ -86,6 +92,7 @@ export const {
   useChangeRoleMutation,
   useChangeStatusMutation,
   useListAuditLogsQuery,
+  useListAuditActorsQuery,
   useListCoursesQuery,
   useSetAnyCourseStatusMutation,
   useAdminCreateCourseMutation,

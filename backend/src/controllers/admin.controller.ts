@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import type { QueryFilter } from 'mongoose';
 import { env } from '../config/env.js';
 import { UserModel, type User, type UserDocument } from '../models/User.js';
-import { AuditLogModel } from '../models/AuditLog.js';
+import { AUDIT_CATEGORIES, AuditLogModel, type AuditLog } from '../models/AuditLog.js';
 import { CourseModel } from '../models/Course.js';
 import { EnrollmentModel } from '../models/Enrollment.js';
 import { parseOrThrow } from '../middleware/validate.js';
@@ -378,19 +378,41 @@ export async function eraseUser(req: Request, res: Response) {
   res.json({ message: `Personal data of ${originalName} erased` });
 }
 
-// Audit entries, newest first, one page at a time. Used by the dashboard's
-// "Recent activity" card (first 5) and the full Activity page.
+// Audit entries, newest first, one page at a time, optionally filtered.
+// Used by the dashboard's "Recent activity" (first 5) and the Activity page.
+// All filters become ONE MongoDB query, so counts and pages stay correct.
 export async function listAuditLogs(req: Request, res: Response) {
-  const { page, pageSize } = parseOrThrow(auditLogQuerySchema, req.query);
+  const { page, pageSize, category, actor, from, to, q } = parseOrThrow(auditLogQuerySchema, req.query);
+
+  const filter: QueryFilter<AuditLog> = {};
+  if (category) filter.action = { $in: [...AUDIT_CATEGORIES[category]] };
+  if (actor) filter.actor = actor;
+  if (from || to) filter.createdAt = { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) };
+  if (q) {
+    // Search the names and titles saved in each entry, and who did it.
+    const pattern = new RegExp(escapeRegex(q), 'i');
+    const actors = await UserModel.find({ name: pattern }).select('_id').limit(200);
+    filter.$or = [
+      { 'details.name': pattern },
+      { 'details.title': pattern },
+      { 'details.instructorName': pattern },
+      { 'details.from': pattern },
+      { 'details.to': pattern },
+      ...(actors.length ? [{ actor: { $in: actors.map((a) => a._id) } }] : []),
+    ];
+  }
+  const filtered = Object.keys(filter).length > 0;
+
   const [logs, total] = await Promise.all([
-    AuditLogModel.find()
+    AuditLogModel.find(filter)
       .sort({ createdAt: -1, _id: -1 })
       .skip((page - 1) * pageSize)
       .limit(pageSize)
       // Replace the actor/target ids with their current name and email.
       .populate('actor', 'name email role')
       .populate('target', 'name email role'),
-    AuditLogModel.estimatedDocumentCount(), // fast: no filter, so MongoDB reads its stored count
+    // No filter: MongoDB's stored count is instant. With filters: count matches.
+    filtered ? AuditLogModel.countDocuments(filter) : AuditLogModel.estimatedDocumentCount(),
   ]);
   res.json({
     logs: logs.map((l) => l.toJSON()),
@@ -398,5 +420,14 @@ export async function listAuditLogs(req: Request, res: Response) {
     page,
     pageSize,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    retentionDays: env.AUDIT_RETENTION_DAYS,
   });
+}
+
+// GET /api/admin/audit-logs/actors : the people who appear as "who did it",
+// for the Activity page's person filter.
+export async function listAuditActors(_req: Request, res: Response) {
+  const ids = await AuditLogModel.distinct('actor');
+  const people = await UserModel.find({ _id: { $in: ids } }).select('name role').sort({ name: 1 });
+  res.json({ actors: people.map((p) => ({ id: p.id, name: p.name, role: p.role })) });
 }

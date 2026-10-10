@@ -26,10 +26,17 @@ export const inviteSchema = z.object({
 });
 export type InviteInput = z.infer<typeof inviteSchema>;
 
-// GET /api/admin/audit-logs?page=&pageSize=
+// GET /api/admin/audit-logs?page=&pageSize=&category=&actor=&from=&to=&q=
+// from/to are exact moments (ISO dates); the page sends the start of the
+// "from" day and the end of the "to" day in the admin's own time zone.
 export const auditLogQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(20),
+  category: z.preprocess(emptyToUndefined, z.enum(['approvals', 'invites', 'accounts', 'courses']).optional()),
+  actor: z.preprocess(emptyToUndefined, z.string().regex(/^[a-f0-9]{24}$/).optional()),
+  from: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
+  to: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
+  q: z.preprocess(emptyToUndefined, z.string().trim().max(100).optional()),
 });
 
 // /api/admin/users/:id : a MongoDB ObjectId (24 hex characters). Checked up
