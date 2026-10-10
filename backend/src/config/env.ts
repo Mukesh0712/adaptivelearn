@@ -48,6 +48,13 @@ const envSchema = z.object({
   // Brevo account. Defaults to SMTP_USER.
   MAIL_FROM_EMAIL: z.preprocess((v) => (v === '' ? undefined : v), z.email().optional()),
   MAIL_FROM_NAME: z.string().default('AdaptiveLearn'),
+
+  // File attachments (optional): Cloudinary account keys, from the
+  // Cloudinary dashboard. Without all three, uploading is switched off and
+  // the rest of the app works as normal.
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

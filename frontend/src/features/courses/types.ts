@@ -27,6 +27,7 @@ export interface EnrolledCourse {
   description: string
   instructorName: string
   joinedAt: string
+  progress: { done: number; total: number }
 }
 
 // One row of an instructor's class list.
@@ -36,6 +37,7 @@ export interface CourseStudent {
   email: string
   status: 'active' | 'invited' | 'deactivated'
   joinedAt: string
+  progress: { done: number; total: number }
 }
 
 export interface CourseInput {

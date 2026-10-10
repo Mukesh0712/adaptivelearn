@@ -15,6 +15,8 @@ import {
   InstructorCourseDetailPage,
   InstructorCoursesPage,
   InstructorDashboard,
+  LessonEditorPage,
+  LessonReaderPage,
   LoginPage,
   NotFoundPage,
   ParentDashboard,
@@ -22,6 +24,7 @@ import {
   ProfilePage,
   RegisterPage,
   ResetPasswordPage,
+  StudentCoursePage,
   StudentCoursesPage,
   StudentDashboard,
   TermsPage,
@@ -69,6 +72,8 @@ export const router = createBrowserRouter([
                 children: [
                   { index: true, element: <StudentDashboard /> },
                   { path: 'courses', element: <StudentCoursesPage /> },
+                  { path: 'courses/:courseId', element: <StudentCoursePage /> },
+                  { path: 'courses/:courseId/lessons/:lessonId', element: <LessonReaderPage /> },
                 ],
               },
               {
@@ -79,6 +84,7 @@ export const router = createBrowserRouter([
                   { index: true, element: <InstructorDashboard /> },
                   { path: 'courses', element: <InstructorCoursesPage /> },
                   { path: 'courses/:courseId', element: <InstructorCourseDetailPage /> },
+                  { path: 'courses/:courseId/lessons/:lessonId', element: <LessonEditorPage /> },
                   { path: 'requests', element: <ApprovalsPage /> },
                 ],
               },
@@ -101,6 +107,7 @@ export const router = createBrowserRouter([
                   { path: 'courses', element: <AdminCoursesPage /> },
                   // Same page as the instructor's; the admin sees extra controls.
                   { path: 'courses/:courseId', element: <InstructorCourseDetailPage /> },
+                  { path: 'courses/:courseId/lessons/:lessonId', element: <LessonEditorPage /> },
                   { path: 'activity', element: <AdminActivityPage /> },
                 ],
               },

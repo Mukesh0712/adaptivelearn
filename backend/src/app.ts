@@ -7,6 +7,7 @@ import { env, isProduction } from './config/env.js';
 import { authRouter } from './routes/auth.routes.js';
 import { adminRouter } from './routes/admin.routes.js';
 import { courseRouter } from './routes/course.routes.js';
+import { contentRouter } from './routes/content.routes.js';
 import { dashboardRouter } from './routes/dashboard.routes.js';
 import { profileRouter } from './routes/profile.routes.js';
 import { approvalRouter } from './routes/approval.routes.js';
@@ -36,13 +37,17 @@ app.use(
       directives: {
         scriptSrc: ["'self'", ...analytics],
         connectSrc: ["'self'", ...analytics],
+        // Lesson videos: only the YouTube (privacy-enhanced) and Vimeo
+        // players may be shown inside the page, nothing else.
+        frameSrc: ['https://www.youtube-nocookie.com', 'https://player.vimeo.com'],
       },
     },
   }),
 );
 app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }));
 app.use(requestLogger);
-app.use(express.json({ limit: '100kb' }));
+// 256kb: room for a long lesson (50,000 characters; Devanagari takes 3 bytes each).
+app.use(express.json({ limit: '256kb' }));
 app.use(cookieParser()); // fills req.cookies (needed to read the refresh token)
 
 // API responses contain personal data (user lists, profiles). no-store tells
@@ -62,6 +67,9 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/admin', adminRouter);
+// Content first: its paths (/content, /modules, /lessons) never clash with
+// the course routes, and anything else falls through to courseRouter.
+app.use('/api/courses/:courseId', contentRouter);
 app.use('/api/courses', courseRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/profile', profileRouter);

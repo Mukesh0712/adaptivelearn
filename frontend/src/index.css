@@ -145,3 +145,70 @@
     cursor: pointer;
   }
 }
+
+/* Lesson text rendered from Markdown (see features/content/Markdown.tsx).
+   Hand-written instead of a typography plugin: only what lessons need. */
+@layer components {
+  .lesson-prose {
+    @apply max-w-3xl text-base leading-7 break-words;
+  }
+  .lesson-prose > * + * {
+    @apply mt-4;
+  }
+  .lesson-prose h2 {
+    @apply mt-8 text-xl font-semibold tracking-tight;
+  }
+  .lesson-prose h3 {
+    @apply mt-6 text-lg font-semibold;
+  }
+  .lesson-prose h4,
+  .lesson-prose h5,
+  .lesson-prose h6 {
+    @apply mt-5 font-semibold;
+  }
+  .lesson-prose a {
+    @apply font-medium text-primary underline underline-offset-4;
+  }
+  .lesson-prose ul {
+    @apply list-disc pl-6;
+  }
+  .lesson-prose ol {
+    @apply list-decimal pl-6;
+  }
+  .lesson-prose li + li {
+    @apply mt-1;
+  }
+  .lesson-prose li > ul,
+  .lesson-prose li > ol {
+    @apply mt-1;
+  }
+  /* Task lists ("- [x] done") have their own checkbox, no bullet. */
+  .lesson-prose ul.contains-task-list {
+    @apply list-none pl-1;
+  }
+  .lesson-prose blockquote {
+    @apply border-l-4 pl-4 text-muted-foreground italic;
+  }
+  .lesson-prose code {
+    @apply rounded bg-muted px-1.5 py-0.5 font-mono text-sm;
+  }
+  .lesson-prose pre {
+    @apply overflow-x-auto rounded-lg bg-muted p-4 text-sm leading-6;
+  }
+  .lesson-prose pre code {
+    @apply bg-transparent p-0;
+  }
+  .lesson-prose hr {
+    @apply my-8;
+  }
+  .lesson-prose table {
+    @apply w-full border-collapse text-sm;
+  }
+  .lesson-prose th,
+  .lesson-prose td {
+    @apply border px-3 py-2 text-left align-top;
+  }
+  .lesson-prose th {
+    @apply bg-muted font-semibold;
+  }
+}
