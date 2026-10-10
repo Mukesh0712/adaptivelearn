@@ -24,15 +24,40 @@ if (storageEnabled) {
 
 const OPTIONS = { resource_type: 'raw', type: 'authenticated' } as const;
 
+// Cloudinary reports failures as a plain object { message, http_code },
+// not an Error. This keeps its message (e.g. "Invalid Signature") so the
+// server log says what actually went wrong.
+export class StorageError extends Error {
+  constructor(
+    message: string,
+    public readonly httpCode?: number,
+  ) {
+    super(message);
+    this.name = 'StorageError';
+  }
+}
+
+const toStorageError = (err: unknown): StorageError => {
+  if (err instanceof StorageError) return err;
+  const e = err as { message?: unknown; http_code?: unknown; error?: { message?: unknown } } | undefined;
+  const message = e?.message ?? e?.error?.message;
+  return new StorageError(
+    typeof message === 'string' && message ? message : 'Unknown storage error',
+    typeof e?.http_code === 'number' ? e.http_code : undefined,
+  );
+};
+
 export function storeFile(data: Buffer, publicId: string): Promise<{ publicId: string; bytes: number }> {
   return new Promise((resolve, reject) => {
     const upload = cloudinary.uploader.upload_stream(
       { ...OPTIONS, public_id: publicId, overwrite: false },
       (err?: unknown, result?: UploadApiResponse) => {
-        if (err || !result) return reject(err instanceof Error ? err : new Error('Upload failed'));
+        if (err || !result) return reject(toStorageError(err));
         resolve({ publicId: result.public_id, bytes: result.bytes });
       },
     );
+    // A network failure before Cloudinary answers arrives here, not in the callback.
+    upload.on('error', (err: unknown) => reject(toStorageError(err)));
     Readable.from(data).pipe(upload);
   });
 }
@@ -48,9 +73,15 @@ export async function fetchStoredFile(publicId: string): Promise<Response> {
 export async function deleteStoredFiles(publicIds: string[]): Promise<void> {
   if (!storageEnabled || publicIds.length === 0) return;
   const results = await Promise.allSettled(
-    publicIds.map((id) => cloudinary.uploader.destroy(id, { ...OPTIONS, invalidate: true })),
+    publicIds.map((id) =>
+      cloudinary.uploader.destroy(id, { ...OPTIONS, invalidate: true }).catch((err: unknown) => {
+        throw toStorageError(err);
+      }),
+    ),
   );
   results.forEach((r, i) => {
-    if (r.status === 'rejected') console.error(`Storage: could not delete ${publicIds[i]}:`, r.reason);
+    if (r.status === 'rejected') {
+      console.error(`Storage: could not delete ${publicIds[i]}: ${(r.reason as Error).message}`);
+    }
   });
 }

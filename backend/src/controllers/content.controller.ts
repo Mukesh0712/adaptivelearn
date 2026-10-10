@@ -11,7 +11,7 @@ import { LessonModel, MAX_RESOURCES } from '../models/Lesson.js';
 import { ModuleModel } from '../models/Module.js';
 import { ApiError } from '../utils/ApiError.js';
 import { checkFile, cleanFileName, MAX_FILE_BYTES } from '../utils/fileTypes.js';
-import { deleteStoredFiles, fetchStoredFile, storageEnabled, storeFile } from '../utils/fileStorage.js';
+import { deleteStoredFiles, fetchStoredFile, storageEnabled, StorageError, storeFile } from '../utils/fileStorage.js';
 import { parseVideoUrl } from '../utils/videoUrl.js';
 import {
   contentParamsSchema,
@@ -337,7 +337,16 @@ export async function uploadResourceFile(req: Request, res: Response) {
 
   // A random name in storage: the uploader's file name never becomes part
   // of a storage path. The real name is kept for display and download.
-  const stored = await storeFile(file.buffer, `adaptivelearn/${access.course.id}/${randomUUID()}.${type.ext}`);
+  const stored = await storeFile(file.buffer, `adaptivelearn/${access.course.id}/${randomUUID()}.${type.ext}`).catch(
+    (err: unknown) => {
+      // The full reason goes to the server log (for the administrator);
+      // the user gets a plain message without account details.
+      const e = err instanceof StorageError ? err : new StorageError(String(err));
+      console.error(`Storage: upload failed (${e.httpCode ?? 'no HTTP status'}): ${e.message}`);
+      console.error('  Check the CLOUDINARY_* settings, or run: npm run check:storage');
+      throw new ApiError(502, 'The file could not be saved to storage. Please try again in a moment.');
+    },
+  );
   try {
     lesson.resources.push({
       kind: 'file',
