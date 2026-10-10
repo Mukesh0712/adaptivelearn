@@ -3,6 +3,7 @@ import type { Types } from 'mongoose';
 import { CourseModel, type CourseDocument } from '../models/Course.js';
 import { EnrollmentModel } from '../models/Enrollment.js';
 import { LessonModel } from '../models/Lesson.js';
+import { JoinRequestModel } from '../models/JoinRequest.js';
 import { LessonProgressModel } from '../models/LessonProgress.js';
 import { ModuleModel } from '../models/Module.js';
 import { deleteStoredFiles } from '../utils/fileStorage.js';
@@ -74,7 +75,10 @@ export async function listMyCourses(req: Request, res: Response) {
 // GET /api/courses/:id : one of the instructor's own courses, with its count.
 export async function getCourse(req: Request, res: Response) {
   const course = await ownCourse(req);
-  const counts = await studentCounts([course._id]);
+  const [counts, pendingRequests] = await Promise.all([
+    studentCounts([course._id]),
+    JoinRequestModel.countDocuments({ course: course._id }),
+  ]);
   // The admin's view of the page also shows who teaches the course.
   const instructor =
     req.user!.role === 'admin'
@@ -85,6 +89,7 @@ export async function getCourse(req: Request, res: Response) {
       ...course.toJSON(),
       studentCount: counts.get(course.id) ?? 0,
       canDelete: canDelete(course, counts.get(course.id) ?? 0),
+      pendingRequests,
       ...(instructor
         ? { instructorInfo: { id: instructor.id, name: instructor.name, email: instructor.email, status: instructor.status } }
         : {}),
@@ -105,7 +110,16 @@ export async function updateCourse(req: Request, res: Response) {
   const changes = req.body as UpdateCourseInput;
   course.set(changes);
   await course.save();
-  res.json({ course: course.toJSON(), message: 'Course updated' });
+  // The approval switch is sent on its own, so it gets its own message.
+  const onlySwitch = Object.keys(changes).length === 1 && changes.requireApproval !== undefined;
+  res.json({
+    course: course.toJSON(),
+    message: onlySwitch
+      ? changes.requireApproval
+        ? 'Students now need your approval to join'
+        : 'Students with the code now join straight away'
+      : 'Course updated',
+  });
 }
 
 // PATCH /api/courses/:id/status : archive or restore.
@@ -211,11 +225,33 @@ export async function joinCourse(req: Request, res: Response) {
   }>('instructor', 'name');
   if (!course) throw ApiError.notFound('No course found with that code. Check it with your instructor.');
 
+  if (course.requireApproval) {
+    // Already a member? Say so instead of creating a pointless request.
+    if (await EnrollmentModel.exists({ course: course._id, student: req.user!.id })) {
+      throw ApiError.conflict(`You're already in "${course.title}"`);
+    }
+    try {
+      const request = await JoinRequestModel.create({ course: course._id, student: req.user!.id });
+      res.status(202).json({
+        status: 'pending',
+        request: { course: requestView(course as unknown as CourseDocument & { instructor: unknown }, request.get('createdAt')) },
+        message: `Request sent. You'll join "${course.title}" once your instructor approves it.`,
+      });
+    } catch (err) {
+      if (isDuplicateKey(err)) throw ApiError.conflict(`You already asked to join "${course.title}". Your instructor will reply soon.`);
+      throw err;
+    }
+    return;
+  }
+
   try {
     const enrollment = await EnrollmentModel.create({ course: course._id, student: req.user!.id });
+    // A request left over from when the course needed approval is now moot.
+    await JoinRequestModel.deleteOne({ course: course._id, student: req.user!.id });
     // Remember forever that this course has had students: it can no longer be deleted.
     if (!course.hasHadStudents) await CourseModel.updateOne({ _id: course._id }, { hasHadStudents: true });
     res.status(201).json({
+      status: 'joined',
       course: studentView(course as unknown as CourseDocument, course.instructor?.name ?? 'Instructor', enrollment.joinedAt),
       message: `You joined "${course.title}"`,
     });
@@ -235,13 +271,45 @@ export async function listEnrolledCourses(req: Request, res: Response) {
       populate: { path: 'instructor', select: 'name' },
     });
   const active = enrollments.filter((e) => e.course && e.course.status === 'active'); // archived courses are hidden
-  const progress = await studentProgress(req.user!.id, active.map((e) => e.course!._id));
+  const [progress, requests] = await Promise.all([
+    studentProgress(req.user!.id, active.map((e) => e.course!._id)),
+    // Requests still waiting for the instructor (active courses only).
+    JoinRequestModel.find({ student: req.user!.id })
+      .sort({ createdAt: -1 })
+      .populate<{ course: (CourseDocument & { instructor: { name: string } | null }) | null }>({
+        path: 'course',
+        populate: { path: 'instructor', select: 'name' },
+      }),
+  ]);
   res.json({
     courses: active.map((e) => ({
       ...studentView(e.course!, e.course!.instructor?.name ?? 'Instructor', e.joinedAt),
       progress: progress.get(e.course!.id) ?? { done: 0, total: 0 },
     })),
+    requests: requests
+      .filter((r) => r.course && r.course.status === 'active')
+      .map((r) => requestView(r.course!, r.get('createdAt'))),
   });
+}
+
+// What a student sees about a course they asked to join (no join code).
+function requestView(course: CourseDocument & { instructor: unknown }, requestedAt: Date) {
+  const instructor = course.instructor as { name?: string } | null;
+  return {
+    id: course.id,
+    title: course.title,
+    code: course.code,
+    instructorName: instructor?.name ?? 'Instructor',
+    requestedAt,
+  };
+}
+
+// DELETE /api/courses/:id/join-request : the student withdraws a request.
+export async function cancelJoinRequest(req: Request, res: Response) {
+  const id = courseIdParamSchema.safeParse(req.params).data?.id;
+  const removed = id ? await JoinRequestModel.findOneAndDelete({ course: id, student: req.user!.id }) : null;
+  if (!removed) throw ApiError.notFound('There is no request to cancel. It may have just been answered.');
+  res.json({ message: 'Request cancelled' });
 }
 
 // DELETE /api/courses/:id/enrollment : the student leaves a course.
@@ -271,6 +339,7 @@ export async function deleteCourse(req: Request, res: Response) {
     LessonModel.deleteMany({ course: course._id }),
     ModuleModel.deleteMany({ course: course._id }),
     LessonProgressModel.deleteMany({ course: course._id }),
+    JoinRequestModel.deleteMany({ course: course._id }),
   ]);
   await deleteStoredFiles(files.flatMap((l) => storedIds(l.resources)));
   await audit(req.user!.id, 'course.deleted', null, { courseId: course.id, title: course.title });

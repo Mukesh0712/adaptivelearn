@@ -1,5 +1,14 @@
 import { baseApi } from '@/services/baseApi'
-import type { Course, CourseInput, CourseResponse, CourseStatus, CourseStudent, EnrolledCourse } from './types'
+import type {
+  Course,
+  CourseInput,
+  CourseResponse,
+  CourseStatus,
+  CourseStudent,
+  EnrolledCourse,
+  JoinCourseResponse,
+  JoinRequestCourse,
+} from './types'
 
 // Every course query shares the 'Courses' tag, so any change (new course,
 // join, leave, removal) refreshes counts and lists everywhere.
@@ -36,13 +45,35 @@ export const coursesApi = baseApi.injectEndpoints({
       invalidatesTags: ['Courses', 'AuditLogs'],
     }),
     // Student
-    enrolledCourses: build.query<{ courses: EnrolledCourse[] }, void>({
+    enrolledCourses: build.query<{ courses: EnrolledCourse[]; requests: JoinRequestCourse[] }, void>({
       query: () => '/courses/enrolled',
       providesTags: ['Courses'],
     }),
-    joinCourse: build.mutation<{ course: EnrolledCourse; message: string }, string>({
+    joinCourse: build.mutation<JoinCourseResponse, string>({
       query: (code) => ({ url: '/courses/join', method: 'POST', body: { code } }),
+      invalidatesTags: ['Courses', 'Approvals'],
+    }),
+    cancelJoinRequest: build.mutation<{ message: string }, string>({
+      query: (id) => ({ url: `/courses/${id}/join-request`, method: 'DELETE' }),
+      invalidatesTags: ['Courses', 'Approvals'],
+    }),
+    // The course page's "Students need my approval to join" switch.
+    setRequireApproval: build.mutation<CourseResponse, { id: string; requireApproval: boolean }>({
+      query: ({ id, requireApproval }) => ({ url: `/courses/${id}`, method: 'PATCH', body: { requireApproval } }),
       invalidatesTags: ['Courses'],
+      // Optimistic: the checkbox changes at once; undone if the server refuses.
+      async onQueryStarted({ id, requireApproval }, { dispatch, queryFulfilled }) {
+        const patch = dispatch(
+          coursesApi.util.updateQueryData('course', id, (draft) => {
+            draft.course.requireApproval = requireApproval
+          }),
+        )
+        try {
+          await queryFulfilled
+        } catch {
+          patch.undo()
+        }
+      },
     }),
     leaveCourse: build.mutation<{ message: string }, string>({
       query: (id) => ({ url: `/courses/${id}/enrollment`, method: 'DELETE' }),
@@ -70,6 +101,8 @@ export const {
   useRemoveStudentMutation,
   useEnrolledCoursesQuery,
   useJoinCourseMutation,
+  useCancelJoinRequestMutation,
+  useSetRequireApprovalMutation,
   useLeaveCourseMutation,
   useDeleteCourseMutation,
 } = coursesApi

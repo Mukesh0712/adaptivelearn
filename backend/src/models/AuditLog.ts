@@ -21,6 +21,8 @@ export const AUDIT_ACTIONS = [
   'course.student_removed',
   'course.reassigned',
   'course.deleted',
+  'course.join_approved',
+  'course.join_rejected',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
@@ -61,7 +63,7 @@ auditLogSchema.index({ actor: 1, createdAt: -1 });
 
 // Activity page categories → the actions they contain.
 export const AUDIT_CATEGORIES = {
-  approvals: ['user.approved', 'user.rejected'],
+  approvals: ['user.approved', 'user.rejected', 'course.join_approved', 'course.join_rejected'],
   invites: ['user.invited', 'invite.resent', 'invite.accepted'],
   accounts: ['user.role_changed', 'user.deactivated', 'user.reactivated', 'user.erased'],
   courses: [

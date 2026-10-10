@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { ArrowRight, BookOpen, LogOut, MoreHorizontal, Plus } from 'lucide-react'
+import { ArrowRight, BookOpen, Clock, LogOut, MoreHorizontal, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageMeta } from '@/components/PageMeta'
 import { ProgressBar } from '@/components/ProgressBar'
@@ -25,9 +25,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { parseApiError } from '@/features/auth/apiError'
-import { useEnrolledCoursesQuery, useLeaveCourseMutation } from '@/features/courses/coursesApi'
+import { useCancelJoinRequestMutation, useEnrolledCoursesQuery, useLeaveCourseMutation } from '@/features/courses/coursesApi'
 import { JoinCourseDialog } from '@/features/courses/JoinCourseDialog'
-import type { EnrolledCourse } from '@/features/courses/types'
+import type { EnrolledCourse, JoinRequestCourse } from '@/features/courses/types'
+import { timeAgo } from '@/lib/dates'
 
 const GRID = 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3'
 const dateFormat = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' })
@@ -70,7 +71,7 @@ export default function StudentCoursesPage() {
             <Skeleton key={i} className="h-36 rounded-xl" />
           ))}
         </div>
-      ) : !data?.courses.length ? (
+      ) : !data?.courses.length && !data?.requests.length ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
             <BookOpen className="size-8 text-muted-foreground" aria-hidden="true" />
@@ -85,10 +86,15 @@ export default function StudentCoursesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className={GRID}>
-          {data.courses.map((course) => (
-            <EnrolledCourseCard key={course.id} course={course} />
-          ))}
+        <div className="space-y-6">
+          {data.requests.length > 0 && <WaitingList requests={data.requests} />}
+          {data.courses.length > 0 && (
+            <div className={GRID}>
+              {data.courses.map((course) => (
+                <EnrolledCourseCard key={course.id} course={course} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -188,5 +194,54 @@ function EnrolledCourseCard({ course }: { course: EnrolledCourse }) {
         </AlertDialogContent>
       </AlertDialog>
     </Card>
+  )
+}
+
+// Courses the student asked to join that still need the instructor's OK.
+function WaitingList({ requests }: { requests: JoinRequestCourse[] }) {
+  const [cancel, { isLoading }] = useCancelJoinRequestMutation()
+  const doCancel = async (r: JoinRequestCourse) => {
+    try {
+      await cancel(r.id).unwrap()
+      toast.success(`Request to join ${r.title} cancelled`)
+    } catch (err) {
+      toast.error(parseApiError(err).message)
+    }
+  }
+  return (
+    <section aria-labelledby="waiting-heading" className="space-y-3">
+      <h2 id="waiting-heading" className="flex items-center gap-2 font-semibold">
+        <Clock className="size-4" aria-hidden="true" />
+        Waiting for approval
+      </h2>
+      <ul className="grid gap-2">
+        {requests.map((r) => (
+          <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3">
+            <div className="min-w-0">
+              <p className="font-medium break-words">
+                {r.title}
+                {r.code && (
+                  <Badge variant="secondary" className="ml-2 align-middle">
+                    {r.code}
+                  </Badge>
+                )}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {r.instructorName} will approve your request · asked {timeAgo(r.requestedAt)}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isLoading}
+              aria-label={`Cancel request to join ${r.title}`}
+              onClick={() => void doCancel(r)}
+            >
+              Cancel request
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

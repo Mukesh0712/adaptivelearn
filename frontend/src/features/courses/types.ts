@@ -13,6 +13,8 @@ export interface Course {
   studentCount?: number // included in the instructor's lists
   hasHadStudents?: boolean // someone has joined at some point
   canDelete?: boolean // nobody ever joined, so it may be deleted
+  requireApproval: boolean // joining with the code only sends a request
+  pendingRequests?: number // join requests waiting (course page only)
   // Only in the admin's view of a course page.
   instructorInfo?: { id: string; name: string; email: string; status?: string }
   createdAt: string
@@ -50,3 +52,17 @@ export interface CourseResponse {
   course: Course
   message: string
 }
+
+// A course the student asked to join; waiting for the instructor.
+export interface JoinRequestCourse {
+  id: string
+  title: string
+  code: string
+  instructorName: string
+  requestedAt: string
+}
+
+// POST /courses/join : joined at once, or a request was sent.
+export type JoinCourseResponse =
+  | { status: 'joined'; course: EnrolledCourse; message: string }
+  | { status: 'pending'; request: { course: JoinRequestCourse }; message: string }
