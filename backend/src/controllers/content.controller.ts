@@ -1,10 +1,17 @@
+import { randomUUID } from 'node:crypto';
+import { Readable } from 'node:stream';
+import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 import type { Request, Response } from 'express';
+import multer from 'multer';
+import { z } from 'zod';
 import type { Types } from 'mongoose';
 import { CourseModel, type CourseDocument } from '../models/Course.js';
 import { EnrollmentModel } from '../models/Enrollment.js';
 import { LessonModel, MAX_RESOURCES } from '../models/Lesson.js';
 import { ModuleModel } from '../models/Module.js';
 import { ApiError } from '../utils/ApiError.js';
+import { checkFile, cleanFileName, MAX_FILE_BYTES } from '../utils/fileTypes.js';
+import { deleteStoredFiles, fetchStoredFile, storageEnabled, storeFile } from '../utils/fileStorage.js';
 import { parseVideoUrl } from '../utils/videoUrl.js';
 import {
   contentParamsSchema,
@@ -227,6 +234,7 @@ export async function deleteLesson(req: Request, res: Response) {
   const access = await editAccess(req);
   const lesson = await lessonIn(req, access);
   await lesson.deleteOne();
+  await deleteStoredFiles(storedIds(lesson.resources));
   // Close the gap so positions stay 0, 1, 2…
   await LessonModel.updateMany({ module: lesson.module, position: { $gt: lesson.position } }, { $inc: { position: -1 } });
   res.json({ message: `Lesson "${lesson.title}" deleted` });
@@ -238,7 +246,7 @@ export async function addResource(req: Request, res: Response) {
   const access = await editAccess(req);
   const lesson = await lessonIn(req, access);
   if (lesson.resources.length >= MAX_RESOURCES) {
-    throw ApiError.conflict(`A lesson can have at most ${MAX_RESOURCES} videos and links.`);
+    throw ApiError.conflict(`A lesson can have at most ${MAX_RESOURCES} videos, links and files.`);
   }
   const { kind, url, title } = req.body as NewResourceInput;
   // The validator already checked the video link, so this always succeeds.
@@ -256,10 +264,11 @@ export async function deleteResource(req: Request, res: Response) {
   const { resourceId } = params(req);
   const resource = resourceId ? lesson.resources.id(resourceId) : null;
   if (!resource) throw ApiError.notFound('That video or link was already removed');
-  const kind = resource.kind;
+  const { kind, publicId } = resource;
   resource.deleteOne();
   await lesson.save();
-  res.json({ message: kind === 'video' ? 'Video removed' : 'Link removed' });
+  if (publicId) await deleteStoredFiles([publicId]);
+  res.json({ message: kind === 'video' ? 'Video removed' : kind === 'file' ? 'File removed' : 'Link removed' });
 }
 
 // PUT /api/courses/:courseId/lessons/:lessonId/resources/order  { ids }
@@ -275,4 +284,102 @@ export async function reorderResources(req: Request, res: Response) {
   lesson.set('resources', ids.map((id) => byId.get(id)));
   await lesson.save();
   res.json({ message: 'Order saved' });
+}
+
+// The Cloudinary names of a lesson's files (used when deleting).
+export const storedIds = (resources: { publicId?: string | null }[]) =>
+  resources.flatMap((r) => (r.publicId ? [r.publicId] : []));
+
+// Reads one uploaded file into memory (at most 10 MB, so that's fine).
+// defParamCharset utf8: keeps non-English file names (e.g. "नोट्स.pdf") intact.
+const receive = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_BYTES, files: 1, fields: 2, fieldSize: 1000 },
+  defParamCharset: 'utf8',
+}).single('file');
+
+function receiveFile(req: Request, res: Response): Promise<Express.Multer.File> {
+  return new Promise((resolve, reject) => {
+    receive(req, res, (err: unknown) => {
+      if (err instanceof multer.MulterError) {
+        return reject(
+          err.code === 'LIMIT_FILE_SIZE'
+            ? new ApiError(413, 'The file is larger than 10 MB.')
+            : ApiError.badRequest('Send one file in a field named "file".'),
+        );
+      }
+      if (err) return reject(err instanceof Error ? err : new Error(String(err)));
+      if (!req.file) return reject(ApiError.badRequest('Choose a file to upload.'));
+      resolve(req.file);
+    });
+  });
+}
+
+const fileTitleSchema = z.object({ title: z.string().trim().max(150, 'Title must be at most 150 characters').default('') });
+
+// POST /api/courses/:courseId/lessons/:lessonId/files  (multipart: file, title?)
+// Who may upload is checked BEFORE the file is read, so nobody else can
+// make the server receive 10 MB.
+export async function uploadResourceFile(req: Request, res: Response) {
+  if (!storageEnabled) {
+    throw new ApiError(503, 'File uploads are not set up on this server yet (Cloudinary keys are missing).');
+  }
+  const access = await editAccess(req);
+  const lesson = await lessonIn(req, access);
+  if (lesson.resources.length >= MAX_RESOURCES) {
+    throw ApiError.conflict(`A lesson can have at most ${MAX_RESOURCES} videos, links and files.`);
+  }
+  const file = await receiveFile(req, res);
+  const fields = fileTitleSchema.safeParse(req.body ?? {});
+  if (!fields.success) throw ApiError.badRequest('Validation failed', z.flattenError(fields.error).fieldErrors);
+  const type = checkFile(file.originalname, file.buffer);
+  if ('error' in type) throw ApiError.badRequest(type.error, { file: [type.error] });
+
+  // A random name in storage: the uploader's file name never becomes part
+  // of a storage path. The real name is kept for display and download.
+  const stored = await storeFile(file.buffer, `adaptivelearn/${access.course.id}/${randomUUID()}.${type.ext}`);
+  try {
+    lesson.resources.push({
+      kind: 'file',
+      title: fields.data.title,
+      fileName: cleanFileName(file.originalname, type.ext),
+      size: file.size,
+      mimeType: type.mime,
+      publicId: stored.publicId,
+    });
+    await lesson.save();
+  } catch (err) {
+    await deleteStoredFiles([stored.publicId]); // don't leave an unused file behind
+    throw err;
+  }
+  res.status(201).json({ resource: lesson.toJSON().resources.at(-1), message: 'File uploaded' });
+}
+
+// GET /api/courses/:courseId/lessons/:lessonId/resources/:resourceId/file
+// Same access rule as the lesson itself (students: published lessons only).
+export async function downloadResourceFile(req: Request, res: Response) {
+  const access = await courseAccess(req);
+  const lesson = await lessonIn(req, access);
+  const { resourceId } = params(req);
+  const resource = resourceId ? lesson.resources.id(resourceId) : null;
+  if (!resource || resource.kind !== 'file' || !resource.publicId) throw ApiError.notFound('File not found');
+  if (!storageEnabled) throw new ApiError(503, 'File downloads are not set up on this server yet.');
+
+  const upstream = await fetchStoredFile(resource.publicId).catch(() => null);
+  if (!upstream?.ok || !upstream.body) {
+    console.error(`Storage: could not fetch ${resource.publicId} (${upstream?.status ?? 'network error'})`);
+    throw new ApiError(502, 'The file could not be fetched right now. Please try again.');
+  }
+  // Our own type (from the allow-list), not the stored one, and always
+  // "attachment": the browser saves the file instead of opening it here.
+  res.type(resource.mimeType ?? 'application/octet-stream');
+  res.attachment(resource.fileName ?? 'file');
+  const length = upstream.headers.get('content-length');
+  if (length) res.set('Content-Length', length);
+  // Stream it through without holding the whole file in memory. If
+  // Cloudinary drops the connection halfway, end ours too (the browser then
+  // reports a failed download instead of saving half a file).
+  Readable.fromWeb(upstream.body as WebReadableStream)
+    .on('error', () => res.destroy())
+    .pipe(res);
 }

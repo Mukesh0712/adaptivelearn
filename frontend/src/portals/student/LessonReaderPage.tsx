@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { parseApiError } from '@/features/auth/apiError'
 import { useLessonQuery } from '@/features/content/contentApi'
 import { Markdown } from '@/features/content/Markdown'
-import { LinkCard, VideoEmbed } from '@/features/content/Resources'
+import { FileCard, LinkCard, VideoEmbed } from '@/features/content/Resources'
 
 // Student: read one published lesson, with previous/next lesson links.
 export default function LessonReaderPage() {
@@ -62,6 +62,7 @@ export default function LessonReaderPage() {
   const { lesson, previous, next } = current
   const videos = lesson.resources.filter((r) => r.kind === 'video')
   const links = lesson.resources.filter((r) => r.kind === 'link')
+  const files = lesson.resources.filter((r) => r.kind === 'file')
   return (
     <article className="space-y-6">
       <PageMeta title={lesson.title} />
@@ -86,6 +87,21 @@ export default function LessonReaderPage() {
         <Markdown>{lesson.content}</Markdown>
       ) : (
         !videos.length && <p className="text-muted-foreground">This lesson has no text yet.</p>
+      )}
+
+      {files.length > 0 && (
+        <section aria-labelledby="files-heading" className="max-w-3xl space-y-3">
+          <h2 id="files-heading" className="text-lg font-semibold">
+            Files
+          </h2>
+          <ul className="grid gap-2">
+            {files.map((f) => (
+              <li key={f.id}>
+                <FileCard resource={f} courseId={courseId} lessonId={lesson.id} />
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {links.length > 0 && (

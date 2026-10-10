@@ -1,6 +1,10 @@
-import { ExternalLink } from 'lucide-react'
+import { Download, ExternalLink, FileText, LoaderCircle } from 'lucide-react'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { parseApiError } from '@/features/auth/apiError'
+import { useDownloadFileMutation } from './contentApi'
 import type { Resource } from './types'
-import { resourceTitle, shortUrl } from './utils'
+import { fileTypeLabel, formatBytes, resourceTitle, shortUrl } from './utils'
 import { embedUrl } from './videoUrl'
 
 // A lesson video, 16:9 at any width.
@@ -48,5 +52,31 @@ export function LinkCard({ resource }: { resource: Resource }) {
       </span>
       <span className="sr-only"> (opens in a new tab)</span>
     </a>
+  )
+}
+
+// A lesson file for students: name, type and size, and a Download button.
+export function FileCard({ resource, courseId, lessonId }: { resource: Resource; courseId: string; lessonId: string }) {
+  const [download, { isLoading }] = useDownloadFileMutation()
+  const title = resourceTitle(resource)
+  const onDownload = () =>
+    void download({ courseId, lessonId, resourceId: resource.id, fileName: resource.fileName ?? 'file' })
+      .unwrap()
+      .catch((err: unknown) => toast.error(parseApiError(err).message))
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border px-4 py-3">
+      <FileText className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <p className="font-medium break-words">{title}</p>
+        <p className="text-sm text-muted-foreground">
+          {fileTypeLabel(resource.fileName)} · {formatBytes(resource.size)}
+        </p>
+      </div>
+      <Button variant="outline" size="sm" disabled={isLoading} aria-label={`Download ${title}`} onClick={onDownload}>
+        {isLoading ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
+        <span className="hidden sm:inline">{isLoading ? 'Downloading…' : 'Download'}</span>
+      </Button>
+    </div>
   )
 }

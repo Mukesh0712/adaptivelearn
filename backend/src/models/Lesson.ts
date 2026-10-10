@@ -3,19 +3,25 @@ import { Schema, model, type InferSchemaType, type HydratedDocument } from 'mong
 export const LESSON_STATUSES = ['draft', 'published'] as const;
 export type LessonStatus = (typeof LESSON_STATUSES)[number];
 
-export const RESOURCE_KINDS = ['video', 'link'] as const;
+export const RESOURCE_KINDS = ['video', 'link', 'file'] as const;
 export type ResourceKind = (typeof RESOURCE_KINDS)[number];
 export const MAX_RESOURCES = 20;
 
-// A video or a link attached to a lesson, stored inside the lesson document
-// (always read together with it, never on its own).
+// A video, link or file attached to a lesson, stored inside the lesson
+// document (always read together with it, never on its own).
 //  - video: only the provider and the video ID are kept (see utils/videoUrl.ts),
 //    plus the link as pasted, to show the instructor;
-//  - link: any http(s) address, shown to students as a card.
+//  - link: any http(s) address, shown to students as a card;
+//  - file: stored in Cloudinary (see utils/fileStorage.ts). publicId is its
+//    name there; it is never sent to the browser.
 const resourceSchema = new Schema({
   kind: { type: String, enum: RESOURCE_KINDS, required: true },
   title: { type: String, trim: true, maxlength: 150, default: '' },
-  url: { type: String, required: true, maxlength: 2000 },
+  url: { type: String, maxlength: 2000, default: '' }, // video and link
+  fileName: { type: String },
+  size: { type: Number }, // bytes
+  mimeType: { type: String },
+  publicId: { type: String },
   provider: { type: String, enum: ['youtube', 'vimeo'] },
   videoId: { type: String },
   hash: { type: String },
@@ -47,7 +53,11 @@ const lessonSchema = new Schema(
         ret.id = String(ret._id);
         ret.module = String(ret.module);
         ret.course = String(ret.course);
-        ret.resources = ((ret.resources ?? []) as Record<string, unknown>[]).map(({ _id, ...r }) => ({ id: String(_id), ...r }));
+        // publicId stays on the server: downloads go through our API.
+        ret.resources = ((ret.resources ?? []) as Record<string, unknown>[]).map(({ _id, publicId: _p, ...r }) => ({
+          id: String(_id),
+          ...r,
+        }));
         delete ret._id;
         delete ret.__v;
         return ret;

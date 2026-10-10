@@ -4,6 +4,8 @@ import { CourseModel, type CourseDocument } from '../models/Course.js';
 import { EnrollmentModel } from '../models/Enrollment.js';
 import { LessonModel } from '../models/Lesson.js';
 import { ModuleModel } from '../models/Module.js';
+import { deleteStoredFiles } from '../utils/fileStorage.js';
+import { storedIds } from './content.controller.js';
 import { UserModel } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
 import { audit } from '../utils/audit.js';
@@ -255,8 +257,11 @@ export async function deleteCourse(req: Request, res: Response) {
   // makes the delete match nothing instead of removing a course in use.
   const deleted = await CourseModel.findOneAndDelete({ _id: course._id, hasHadStudents: false });
   if (!deleted) throw ApiError.conflict('Someone just joined this course, so it can only be archived.');
-  // Its modules and lessons go with it (nobody ever read them: it was never joined).
+  // Its modules, lessons and stored files go with it (nobody ever read them:
+  // it was never joined).
+  const files = await LessonModel.find({ course: course._id, 'resources.kind': 'file' }).select('resources');
   await Promise.all([LessonModel.deleteMany({ course: course._id }), ModuleModel.deleteMany({ course: course._id })]);
+  await deleteStoredFiles(files.flatMap((l) => storedIds(l.resources)));
   await audit(req.user!.id, 'course.deleted', null, { courseId: course.id, title: course.title });
   res.json({ message: `"${course.title}" deleted` });
 }

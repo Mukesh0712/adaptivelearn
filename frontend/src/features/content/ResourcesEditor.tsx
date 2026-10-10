@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react'
-import { CheckCircle2, Link2, Plus, Trash2, Video } from 'lucide-react'
+import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { CheckCircle2, Download, FileText, Link2, LoaderCircle, Plus, Trash2, Upload, Video } from 'lucide-react'
 import { toast } from 'sonner'
 import { SubmitButton } from '@/components/SubmitButton'
 import {
@@ -25,16 +25,30 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { FieldError } from '@/features/auth/pages/AuthCard'
 import { parseApiError } from '@/features/auth/apiError'
-import { useAddResourceMutation, useDeleteResourceMutation, useReorderResourcesMutation } from './contentApi'
+import {
+  useAddResourceMutation,
+  useDeleteResourceMutation,
+  useDownloadFileMutation,
+  useReorderResourcesMutation,
+  useUploadFileMutation,
+} from './contentApi'
 import { MoveButtons } from './MoveButtons'
-import { moved, resourceTitle, shortUrl } from './utils'
-import { MAX_RESOURCES, type Lesson, type Resource, type ResourceKind } from './types'
+import { fileTypeLabel, formatBytes, moved, resourceTitle, shortUrl } from './utils'
+import { FILE_EXTENSIONS, MAX_FILE_BYTES, MAX_RESOURCES, type Lesson, type Resource } from './types'
 import { parseVideoUrl } from './videoUrl'
 
-// Editor section: the lesson's videos and links. Unlike the text, each
-// change is saved straight away.
+type AddKind = 'video' | 'link'
+const ICON = { video: Video, link: Link2, file: FileText }
+const KIND_LABEL = { video: 'Video: ', link: 'Link: ', file: 'File: ' }
+
+// Editor section: the lesson's videos, links and files. Unlike the text,
+// each change is saved straight away.
 export function ResourcesEditor({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
-  const [adding, setAdding] = useState<ResourceKind | null>(null)
+  const [adding, setAdding] = useState<AddKind | null>(null)
+  const [uploading, setUploading] = useState<File | null>(null)
+  const fileInput = useRef<HTMLInputElement>(null)
+  const [uploadFile] = useUploadFileMutation()
+  const [download] = useDownloadFileMutation()
   const [removing, setRemoving] = useState<Resource | null>(null)
   const [deleteResource, { isLoading: isRemoving }] = useDeleteResourceMutation()
   const [reorder] = useReorderResourcesMutation()
@@ -52,30 +66,65 @@ export function ResourcesEditor({ lesson, courseId }: { lesson: Lesson; courseId
     }
   }
 
+  // Checks size and type here first, so a wrong file is refused at once
+  // instead of after a long upload. The server checks again.
+  const onPick = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // picking the same file again still fires onChange
+    if (!file) return
+    const ext = /\.([a-z0-9]+)$/i.exec(file.name)?.[1]?.toLowerCase() ?? ''
+    if (!FILE_EXTENSIONS.includes(ext)) {
+      toast.error('This type of file is not allowed. Use PDF, Word, PowerPoint, Excel, an image, ZIP or a text file.')
+      return
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      toast.error(`${file.name} is ${formatBytes(file.size)}. The limit is 10 MB.`)
+      return
+    }
+    setUploading(file)
+    try {
+      toast.success((await uploadFile({ courseId, lessonId: lesson.id, file }).unwrap()).message)
+    } catch (err) {
+      toast.error(parseApiError(err).message)
+    } finally {
+      setUploading(null)
+    }
+  }
+
+  const doDownload = (r: Resource) =>
+    void download({ courseId, lessonId: lesson.id, resourceId: r.id, fileName: r.fileName ?? 'file' })
+      .unwrap()
+      .catch((err: unknown) => toast.error(parseApiError(err).message))
+
   return (
     <section aria-labelledby="resources-heading" className="grid gap-3 border-t pt-5">
       <div>
         <h2 id="resources-heading" className="text-lg font-semibold">
-          Videos and links
+          Videos, links and files
         </h2>
         <p className="text-sm text-muted-foreground">
           Saved as soon as you add them{published ? ', and students see them straight away' : ''}. Videos appear above
-          the lesson text, links below it.
+          the lesson text; files and links below it.
         </p>
       </div>
 
       {resources.length > 0 && (
-        <ol className="divide-y rounded-lg border" aria-label="Videos and links">
+        <ol className="divide-y rounded-lg border" aria-label="Videos, links and files">
           {resources.map((r, i) => {
-            const Icon = r.kind === 'video' ? Video : Link2
+            const Icon = ICON[r.kind]
             return (
               <li key={r.id} className="flex items-center gap-3 px-3 py-2">
                 <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium break-words">
-                    <span className="sr-only">{r.kind === 'video' ? 'Video: ' : 'Link: '}</span>
+                    <span className="sr-only">{KIND_LABEL[r.kind]}</span>
                     {resourceTitle(r)}
                   </p>
+                  {r.kind === 'file' ? (
+                    <p className="text-xs text-muted-foreground">
+                      {fileTypeLabel(r.fileName)} · {formatBytes(r.size)}
+                    </p>
+                  ) : (
                   <a
                     href={r.url}
                     target="_blank"
@@ -85,7 +134,13 @@ export function ResourcesEditor({ lesson, courseId }: { lesson: Lesson; courseId
                     {shortUrl(r.url)}
                     <span className="sr-only"> (opens in a new tab)</span>
                   </a>
+                  )}
                 </div>
+                {r.kind === 'file' && (
+                  <Button variant="ghost" size="icon-sm" aria-label={`Download ${resourceTitle(r)}`} onClick={() => doDownload(r)}>
+                    <Download aria-hidden="true" />
+                  </Button>
+                )}
                 <MoveButtons
                   label={resourceTitle(r)}
                   index={i}
@@ -105,6 +160,13 @@ export function ResourcesEditor({ lesson, courseId }: { lesson: Lesson; courseId
         </ol>
       )}
 
+      {uploading && (
+        <p role="status" className="flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm">
+          <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+          Uploading {uploading.name} ({formatBytes(uploading.size)})…
+        </p>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" disabled={full} onClick={() => setAdding('video')}>
           <Video aria-hidden="true" />
@@ -114,6 +176,21 @@ export function ResourcesEditor({ lesson, courseId }: { lesson: Lesson; courseId
           <Link2 aria-hidden="true" />
           Add link
         </Button>
+        <Button variant="outline" size="sm" disabled={full || !!uploading} onClick={() => fileInput.current?.click()}>
+          <Upload aria-hidden="true" />
+          Upload file
+        </Button>
+        {/* Hidden: the button above opens it. accept= filters the picker. */}
+        <input
+          ref={fileInput}
+          type="file"
+          className="hidden"
+          tabIndex={-1}
+          aria-hidden="true"
+          accept={FILE_EXTENSIONS.map((e) => `.${e}`).join(',')}
+          onChange={(e) => void onPick(e)}
+        />
+        <span className="text-xs text-muted-foreground">Files: PDF, Office, images, ZIP or text, up to 10 MB.</span>
         {full && <p className="text-sm text-muted-foreground">Limit reached: {MAX_RESOURCES} per lesson.</p>}
       </div>
 
@@ -128,8 +205,10 @@ export function ResourcesEditor({ lesson, courseId }: { lesson: Lesson; courseId
           <AlertDialogHeader>
             <AlertDialogTitle>Remove {removing ? resourceTitle(removing) : ''}?</AlertDialogTitle>
             <AlertDialogDescription>
-              It's removed from this lesson{published ? ' and students no longer see it' : ''}. The video or website
-              itself isn't affected.
+              It's removed from this lesson{published ? ' and students no longer see it' : ''}.
+              {removing?.kind === 'file'
+                ? ' The uploaded file is deleted from storage.'
+                : " The video or website itself isn't affected."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -157,7 +236,7 @@ function AddResourceForm({
   courseId,
   onDone,
 }: {
-  kind: ResourceKind
+  kind: AddKind
   lesson: Lesson
   courseId: string
   onDone: () => void

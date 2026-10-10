@@ -15,7 +15,10 @@ import {
   addResource,
   deleteResource,
   reorderResources,
+  uploadResourceFile,
+  downloadResourceFile,
 } from '../controllers/content.controller.js';
+import { uploadLimiter } from '../middleware/rateLimiters.js';
 import {
   moduleSchema,
   newLessonSchema,
@@ -47,3 +50,7 @@ contentRouter.delete('/lessons/:lessonId', authenticate, deleteLesson);
 contentRouter.post('/lessons/:lessonId/resources', authenticate, validate(newResourceSchema), addResource);
 contentRouter.put('/lessons/:lessonId/resources/order', authenticate, validate(orderSchema), reorderResources);
 contentRouter.delete('/lessons/:lessonId/resources/:resourceId', authenticate, deleteResource);
+// File attachments (multipart upload, not JSON, so no validate() here: the
+// controller checks the file and its title itself).
+contentRouter.post('/lessons/:lessonId/files', authenticate, uploadLimiter, uploadResourceFile);
+contentRouter.get('/lessons/:lessonId/resources/:resourceId/file', authenticate, downloadResourceFile);

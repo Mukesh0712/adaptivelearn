@@ -1,5 +1,6 @@
 import { baseApi } from '@/services/baseApi'
 import type { CourseContent, Lesson, LessonChanges, LessonResponse, Resource, ResourceKind } from './types'
+import { saveBlob } from './utils'
 
 type Message = { message: string }
 type CourseArg = { courseId: string }
@@ -101,6 +102,29 @@ export const contentApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Content'],
     }),
+    // multipart/form-data: the browser sets the Content-Type (with its
+    // boundary) itself when the body is a FormData.
+    uploadFile: build.mutation<{ resource: Resource } & Message, CourseArg & { lessonId: string; file: File }>({
+      query: ({ courseId, lessonId, file }) => {
+        const body = new FormData()
+        body.append('file', file)
+        return { url: `/courses/${courseId}/lessons/${lessonId}/files`, method: 'POST', body }
+      },
+      invalidatesTags: ['Content'],
+    }),
+    // Downloads go through our API (with the login token), which checks
+    // access and streams the file from storage. The bytes are saved
+    // straight away, never kept in the Redux store.
+    downloadFile: build.mutation<null, CourseArg & { lessonId: string; resourceId: string; fileName: string }>({
+      query: ({ courseId, lessonId, resourceId, fileName }) => ({
+        url: `/courses/${courseId}/lessons/${lessonId}/resources/${resourceId}/file`,
+        responseHandler: async (response) => {
+          if (!response.ok) return response.json().catch(() => null)
+          saveBlob(await response.blob(), fileName)
+          return null
+        },
+      }),
+    }),
     deleteResource: build.mutation<Message, CourseArg & { lessonId: string; resourceId: string }>({
       query: ({ courseId, lessonId, resourceId }) => ({
         url: `/courses/${courseId}/lessons/${lessonId}/resources/${resourceId}`,
@@ -148,6 +172,8 @@ export const {
   useUpdateLessonMutation,
   useDeleteLessonMutation,
   useAddResourceMutation,
+  useUploadFileMutation,
+  useDownloadFileMutation,
   useDeleteResourceMutation,
   useReorderResourcesMutation,
 } = contentApi

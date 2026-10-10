@@ -61,6 +61,16 @@ export const joinCourseLimiter = limiter(
   (req) => `user:${req.user!.id}`, // runs after authenticate, so req.user is set
 );
 
+// Lesson file uploads, per ACCOUNT: plenty for preparing a course, but a
+// stolen session can't fill up the storage quota.
+export const uploadLimiter = limiter(
+  15,
+  30,
+  'Too many uploads. Please try again in 15 minutes.',
+  false,
+  (req) => `user:${req.user!.id}`,
+);
+
 // Changing your password needs the current one. Only failed attempts count,
 // per ACCOUNT, so a stolen session can't be used to guess the current
 // password: 5 wrong guesses in 15 minutes and it stops.

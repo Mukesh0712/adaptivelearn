@@ -27,10 +27,14 @@ export interface CourseContent {
   modules: OutlineModule[]
 }
 
-export type ResourceKind = 'video' | 'link'
+export type ResourceKind = 'video' | 'link' | 'file'
 export const MAX_RESOURCES = 20
+export const MAX_FILE_BYTES = 10 * 1024 * 1024 // 10 MB
 
-// A video or link attached to a lesson (videos carry the parsed ID).
+// Allowed attachments; must match backend/src/utils/fileTypes.ts.
+export const FILE_EXTENSIONS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'zip', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'txt', 'csv', 'md']
+
+// A video, link or file attached to a lesson (videos carry the parsed ID).
 export interface Resource {
   id: string
   kind: ResourceKind
@@ -40,6 +44,9 @@ export interface Resource {
   videoId?: string
   hash?: string
   start?: number
+  fileName?: string // files only
+  size?: number // bytes
+  mimeType?: string
 }
 
 export interface Lesson {
