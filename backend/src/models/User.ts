@@ -51,6 +51,12 @@ const userSchema = new Schema(
     // When the password last changed. Access tokens issued before this are
     // refused (see authenticate), so a stolen session dies with the password.
     passwordChangedAt: { type: Date, default: null },
+    // A student signing up names the course they want to join (by its join
+    // code). Its instructor can then approve them, and approving enrols them.
+    requestedCourse: { type: Schema.Types.ObjectId, ref: 'Course', default: null },
+    // Who approved a sign-up, and when (shown as "Approved by …").
+    approvedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    approvedAt: { type: Date, default: null },
     // Set when an admin erased this person's personal data (DPDP request).
     erasedAt: { type: Date, default: null },
     // Invites (Phase 2): SHA-256 of the emailed invite token + its expiry, and

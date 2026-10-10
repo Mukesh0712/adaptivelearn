@@ -2,14 +2,15 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/authenticate.js';
 import { authorize } from '../middleware/authorize.js';
 import {
-  approveUser,
+  bulkCancelInvites,
+  bulkResendInvites,
   changeRole,
   eraseUser,
   changeStatus,
   createInvite,
+  listAuditActors,
   listAuditLogs,
   listUsers,
-  rejectUser,
   resendInvite,
 } from '../controllers/admin.controller.js';
 import { validate } from '../middleware/validate.js';
@@ -20,6 +21,7 @@ import {
   setAnyCourseStatus,
 } from '../controllers/adminCourse.controller.js';
 import { courseStatusSchema } from '../validators/course.schema.js';
+import { bulkIdsSchema } from '../validators/common.schema.js';
 import {
   adminCreateCourseSchema,
   changeRoleSchema,
@@ -36,10 +38,11 @@ adminRouter.use(authenticate, authorize('admin'));
 
 adminRouter.get('/users', listUsers);
 adminRouter.post('/invites', validate(inviteSchema), createInvite);
+adminRouter.post('/invites/resend', validate(bulkIdsSchema), bulkResendInvites);
+adminRouter.post('/invites/cancel', validate(bulkIdsSchema), bulkCancelInvites);
 adminRouter.get('/audit-logs', listAuditLogs);
+adminRouter.get('/audit-logs/actors', listAuditActors);
 adminRouter.post('/users/:id/resend-invite', resendInvite);
-adminRouter.post('/users/:id/approve', approveUser);
-adminRouter.post('/users/:id/reject', rejectUser);
 adminRouter.post('/users/:id/erase', validate(eraseUserSchema), eraseUser);
 adminRouter.patch('/users/:id/role', validate(changeRoleSchema), changeRole);
 adminRouter.patch('/users/:id/status', validate(changeStatusSchema), changeStatus);

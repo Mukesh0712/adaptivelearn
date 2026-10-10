@@ -1,4 +1,5 @@
 import { Schema, model, type InferSchemaType } from 'mongoose';
+import { env } from '../config/env.js';
 
 // Every action that changes who can use the platform is recorded here:
 // who did it (actor), to whom (target), what, and when. Entries are only
@@ -48,8 +49,32 @@ const auditLogSchema = new Schema(
   },
 );
 
-// The dashboard asks for "newest first"; this index makes that a fast scan.
-auditLogSchema.index({ createdAt: -1 });
+// TTL ("time to live") index: MongoDB itself deletes entries once they are
+// older than AUDIT_RETENTION_DAYS, so the log can't grow forever and nobody
+// has to delete entries by hand. It also serves "newest first" sorting (an
+// index can be read in either direction).
+// Note: MongoDB keeps the expiry it was created with; after changing
+// AUDIT_RETENTION_DAYS on an existing database, update it with collMod.
+auditLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: env.AUDIT_RETENTION_DAYS * 24 * 60 * 60 });
+// "What did this person do?" (the Activity page's person filter).
+auditLogSchema.index({ actor: 1, createdAt: -1 });
+
+// Activity page categories → the actions they contain.
+export const AUDIT_CATEGORIES = {
+  approvals: ['user.approved', 'user.rejected'],
+  invites: ['user.invited', 'invite.resent', 'invite.accepted'],
+  accounts: ['user.role_changed', 'user.deactivated', 'user.reactivated', 'user.erased'],
+  courses: [
+    'course.created',
+    'course.archived',
+    'course.restored',
+    'course.code_reset',
+    'course.student_removed',
+    'course.reassigned',
+    'course.deleted',
+  ],
+} as const satisfies Record<string, readonly AuditAction[]>;
+export type AuditCategory = keyof typeof AUDIT_CATEGORIES;
 
 export type AuditLog = InferSchemaType<typeof auditLogSchema>;
 

@@ -1,8 +1,10 @@
 import { baseApi } from '@/services/baseApi'
+import type { ApprovalResult } from '@/features/approvals/approvalsApi'
 import type {
   AssignableRole,
   AdminCourse,
   AuditLog,
+  AuditLogParams,
   InviteRequest,
   InviteResponse,
   ListCoursesParams,
@@ -24,17 +26,18 @@ export const adminApi = baseApi.injectEndpoints({
       query: (body) => ({ url: '/admin/invites', method: 'POST', body }),
       invalidatesTags: ['Users', 'AuditLogs'],
     }),
-    approveUser: build.mutation<UserActionResponse, string>({
-      query: (id) => ({ url: `/admin/users/${id}/approve`, method: 'POST' }),
-      invalidatesTags: ['Users', 'AuditLogs'],
-    }),
-    rejectUser: build.mutation<{ message: string }, string>({
-      query: (id) => ({ url: `/admin/users/${id}/reject`, method: 'POST' }),
-      invalidatesTags: ['Users', 'AuditLogs'],
-    }),
     eraseUser: build.mutation<{ message: string }, { id: string; confirmEmail: string }>({
       query: ({ id, confirmEmail }) => ({ url: `/admin/users/${id}/erase`, method: 'POST', body: { confirmEmail } }),
       invalidatesTags: ['Users', 'AuditLogs', 'Courses'],
+    }),
+    // Bulk invites: one outcome per person ("done" or "already handled").
+    bulkResendInvites: build.mutation<ApprovalResult, string[]>({
+      query: (ids) => ({ url: '/admin/invites/resend', method: 'POST', body: { ids } }),
+      invalidatesTags: ['Users', 'AuditLogs'],
+    }),
+    bulkCancelInvites: build.mutation<ApprovalResult, string[]>({
+      query: (ids) => ({ url: '/admin/invites/cancel', method: 'POST', body: { ids } }),
+      invalidatesTags: ['Users', 'AuditLogs'],
     }),
     resendInvite: build.mutation<InviteResponse, string>({
       query: (id) => ({ url: `/admin/users/${id}/resend-invite`, method: 'POST' }),
@@ -67,8 +70,13 @@ export const adminApi = baseApi.injectEndpoints({
       query: ({ id, instructorId }) => ({ url: `/admin/courses/${id}/instructor`, method: 'PATCH', body: { instructorId } }),
       invalidatesTags: ['Courses', 'AuditLogs'],
     }),
-    listAuditLogs: build.query<Paginated<{ logs: AuditLog[] }>, { page: number; pageSize: number }>({
+    listAuditLogs: build.query<Paginated<{ logs: AuditLog[]; retentionDays?: number }>, AuditLogParams>({
       query: (params) => ({ url: '/admin/audit-logs', params }),
+      providesTags: ['AuditLogs'],
+    }),
+    // People who appear as "who did it" (for the Activity filter).
+    listAuditActors: build.query<{ actors: { id: string; name: string; role: string }[] }, void>({
+      query: () => '/admin/audit-logs/actors',
       providesTags: ['AuditLogs'],
     }),
   }),
@@ -78,12 +86,13 @@ export const {
   useListUsersQuery,
   useInviteUserMutation,
   useResendInviteMutation,
-  useApproveUserMutation,
-  useRejectUserMutation,
+  useBulkResendInvitesMutation,
+  useBulkCancelInvitesMutation,
   useEraseUserMutation,
   useChangeRoleMutation,
   useChangeStatusMutation,
   useListAuditLogsQuery,
+  useListAuditActorsQuery,
   useListCoursesQuery,
   useSetAnyCourseStatusMutation,
   useAdminCreateCourseMutation,

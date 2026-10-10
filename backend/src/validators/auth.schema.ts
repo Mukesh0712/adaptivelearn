@@ -10,13 +10,23 @@ const newPassword = z
   .min(8, 'Password must be at least 8 characters')
   .max(72, 'Password must be at most 72 characters'); // bcrypt ignores bytes past 72
 
-export const registerSchema = z.object({
-  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
-  email,
-  password: newPassword,
-  role: z.enum(SELF_REGISTER_ROLES, { error: 'Role must be student or parent' }),
-  acceptTerms: z.literal(true, { error: 'You must accept the Terms and Privacy Policy' }),
-});
+export const registerSchema = z
+  .object({
+    name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
+    email,
+    password: newPassword,
+    role: z.enum(SELF_REGISTER_ROLES, { error: 'Role must be student or parent' }),
+    acceptTerms: z.literal(true, { error: 'You must accept the Terms and Privacy Policy' }),
+    // Students: the class join code from their instructor ("k7q-2mx" etc.).
+    joinCode: z
+      .string()
+      .optional()
+      .transform((v) => (v ?? '').toUpperCase().replace(/[\s-]/g, '')),
+  })
+  .refine((v) => v.role !== 'student' || /^[A-Z0-9]{6}$/.test(v.joinCode), {
+    path: ['joinCode'],
+    message: 'Enter the 6-character class code from your instructor',
+  });
 
 export const loginSchema = z.object({
   email,

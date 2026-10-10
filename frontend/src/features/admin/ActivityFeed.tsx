@@ -65,7 +65,9 @@ function describe(log: AuditLog): string {
     case 'user.reactivated':
       return `${actor} reactivated ${target}`
     case 'user.approved':
-      return `${actor} approved ${target} as ${label(d.role)}`
+      return d.title
+        ? `${actor} approved ${target} as ${label(d.role)} and added them to ${d.title}`
+        : `${actor} approved ${target} as ${label(d.role)}`
     case 'user.rejected':
       return `${actor} rejected the sign-up from ${d.name ?? 'someone'} (${label(d.role)})`
     case 'user.erased':
@@ -100,6 +102,7 @@ export function ActivityFeed({
   onRetry,
   skeletonRows = 3,
   showDate = false,
+  emptyText = 'Nothing yet. Invites you send will appear here.',
 }: {
   logs?: AuditLog[]
   error?: unknown
@@ -107,6 +110,7 @@ export function ActivityFeed({
   onRetry: () => void
   skeletonRows?: number
   showDate?: boolean
+  emptyText?: string
 }) {
   if (error) {
     return (
@@ -128,7 +132,7 @@ export function ActivityFeed({
     )
   }
   if (!logs?.length) {
-    return <p className="text-sm text-muted-foreground">Nothing yet. Invites you send will appear here.</p>
+    return <p className="text-sm text-muted-foreground">{emptyText}</p>
   }
 
   return (

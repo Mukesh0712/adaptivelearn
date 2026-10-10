@@ -2,14 +2,14 @@ import type { Request, Response } from 'express';
 import type { QueryFilter } from 'mongoose';
 import { env } from '../config/env.js';
 import { UserModel, type User, type UserDocument } from '../models/User.js';
-import { AuditLogModel } from '../models/AuditLog.js';
+import { AUDIT_CATEGORIES, AuditLogModel, type AuditLog } from '../models/AuditLog.js';
 import { CourseModel } from '../models/Course.js';
 import { EnrollmentModel } from '../models/Enrollment.js';
 import { parseOrThrow } from '../middleware/validate.js';
 import { ApiError } from '../utils/ApiError.js';
 import { audit } from '../utils/audit.js';
 import { escapeRegex } from '../utils/regex.js';
-import { sendApprovalEmail, sendInviteEmail } from '../utils/mailer.js';
+import { sendInviteEmail } from '../utils/mailer.js';
 import { generateLinkToken, hashToken } from '../utils/tokens.js';
 import {
   auditLogQuerySchema,
@@ -20,6 +20,7 @@ import {
   type ChangeStatusInput,
   type InviteInput,
 } from '../validators/admin.schema.js';
+import type { BulkIdsInput } from '../validators/common.schema.js';
 
 
 // Lists users for the Admin "Users" page, newest first, one page at a time.
@@ -259,46 +260,64 @@ export async function changeStatus(req: Request, res: Response) {
   });
 }
 
-// POST /api/admin/users/:id/approve : a pending sign-up becomes active and
-// gets an email saying they can log in.
-export async function approveUser(req: Request, res: Response) {
-  const user = await manageableUser(req);
-  if (user.status !== 'pending') throw ApiError.conflict(`${user.name} is not waiting for approval`);
+type BulkOutcome = 'done' | 'already_handled';
 
-  const updated = await UserModel.findOneAndUpdate(
-    { _id: user._id, status: 'pending' },
-    { status: 'active' },
-    { returnDocument: 'after' },
-  );
-  if (!updated) throw changedMeanwhile();
+// "3 resent · 1 already handled by someone else"
+const bulkSummary = (verb: string, results: { outcome: BulkOutcome }[]) => {
+  const done = results.filter((r) => r.outcome === 'done').length;
+  const other = results.length - done;
+  return other ? `${done} ${verb} · ${other} already handled by someone else` : `${done} ${verb}`;
+};
 
-  let emailSent = true;
-  try {
-    await sendApprovalEmail(updated.email, updated.name, `${env.CLIENT_ORIGIN}/login`);
-  } catch (err) {
-    emailSent = false;
-    console.error(`Email: FAILED to send approval to ${updated.email}:`, err instanceof Error ? err.message : err);
+// POST /api/admin/invites/resend  { ids } : a new link for each pending
+// invite (old links stop working). Each one is a conditional update
+// ("only if still invited"), like approvals.
+export async function bulkResendInvites(req: Request, res: Response) {
+  const { ids } = req.body as BulkIdsInput;
+  const results: { id: string; outcome: BulkOutcome }[] = [];
+  const emails: Promise<unknown>[] = [];
+  for (const id of ids) {
+    const invite = newInvite();
+    const user = await UserModel.findOneAndUpdate(
+      { _id: id, status: 'invited', role: { $ne: 'admin' } },
+      { ...invite.fields, invitedBy: req.user!.id },
+      { returnDocument: 'after' },
+    );
+    if (!user) {
+      results.push({ id, outcome: 'already_handled' });
+      continue;
+    }
+    // Emails are sent in parallel; one failure doesn't stop the others.
+    emails.push(
+      emailInvite(user, req.user!.id, invite.link).then((emailSent) =>
+        audit(req.user!.id, 'invite.resent', user._id, { name: user.name, email: user.email, role: user.role, emailSent }),
+      ),
+    );
+    results.push({ id, outcome: 'done' });
   }
-  await audit(req.user!.id, 'user.approved', updated._id, { name: updated.name, role: updated.role, emailSent });
-  res.json({
-    user: updated.toJSON(),
-    message: emailSent
-      ? `${updated.name} approved. We emailed them that they can log in.`
-      : `${updated.name} approved, but the email could not be sent. Let them know they can log in.`,
-  });
+  await Promise.allSettled(emails);
+  res.json({ results, message: bulkSummary('resent', results) });
 }
 
-// POST /api/admin/users/:id/reject : removes a pending sign-up. It has no
-// data yet (it never logged in), so nothing else is affected; the audit log
-// keeps a record. If it was a mistake, the person can simply register again.
-export async function rejectUser(req: Request, res: Response) {
-  const user = await manageableUser(req);
-  if (user.status !== 'pending') throw ApiError.conflict(`${user.name} is not waiting for approval`);
-
-  const removed = await UserModel.findOneAndDelete({ _id: user._id, status: 'pending' });
-  if (!removed) throw changedMeanwhile();
-  await audit(req.user!.id, 'user.rejected', null, { name: removed.name, email: removed.email, role: removed.role });
-  res.json({ message: `Sign-up from ${removed.name} rejected` });
+// POST /api/admin/invites/cancel  { ids } : the links stop working and the
+// accounts become deactivated (same as "Cancel invite" on one person).
+export async function bulkCancelInvites(req: Request, res: Response) {
+  const { ids } = req.body as BulkIdsInput;
+  const results: { id: string; outcome: BulkOutcome }[] = [];
+  for (const id of ids) {
+    const user = await UserModel.findOneAndUpdate(
+      { _id: id, status: 'invited', role: { $ne: 'admin' } },
+      { status: 'deactivated', refreshTokenHash: null, inviteTokenHash: null, inviteExpiresAt: null },
+      { returnDocument: 'after' },
+    );
+    if (!user) {
+      results.push({ id, outcome: 'already_handled' });
+      continue;
+    }
+    await audit(req.user!.id, 'user.deactivated', user._id, { name: user.name, wasInvited: true });
+    results.push({ id, outcome: 'done' });
+  }
+  res.json({ results, message: bulkSummary('cancelled', results) });
 }
 
 // POST /api/admin/users/:id/erase : "right to erasure" (India's DPDP Act).
@@ -359,19 +378,41 @@ export async function eraseUser(req: Request, res: Response) {
   res.json({ message: `Personal data of ${originalName} erased` });
 }
 
-// Audit entries, newest first, one page at a time. Used by the dashboard's
-// "Recent activity" card (first 5) and the full Activity page.
+// Audit entries, newest first, one page at a time, optionally filtered.
+// Used by the dashboard's "Recent activity" (first 5) and the Activity page.
+// All filters become ONE MongoDB query, so counts and pages stay correct.
 export async function listAuditLogs(req: Request, res: Response) {
-  const { page, pageSize } = parseOrThrow(auditLogQuerySchema, req.query);
+  const { page, pageSize, category, actor, from, to, q } = parseOrThrow(auditLogQuerySchema, req.query);
+
+  const filter: QueryFilter<AuditLog> = {};
+  if (category) filter.action = { $in: [...AUDIT_CATEGORIES[category]] };
+  if (actor) filter.actor = actor;
+  if (from || to) filter.createdAt = { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) };
+  if (q) {
+    // Search the names and titles saved in each entry, and who did it.
+    const pattern = new RegExp(escapeRegex(q), 'i');
+    const actors = await UserModel.find({ name: pattern }).select('_id').limit(200);
+    filter.$or = [
+      { 'details.name': pattern },
+      { 'details.title': pattern },
+      { 'details.instructorName': pattern },
+      { 'details.from': pattern },
+      { 'details.to': pattern },
+      ...(actors.length ? [{ actor: { $in: actors.map((a) => a._id) } }] : []),
+    ];
+  }
+  const filtered = Object.keys(filter).length > 0;
+
   const [logs, total] = await Promise.all([
-    AuditLogModel.find()
+    AuditLogModel.find(filter)
       .sort({ createdAt: -1, _id: -1 })
       .skip((page - 1) * pageSize)
       .limit(pageSize)
       // Replace the actor/target ids with their current name and email.
       .populate('actor', 'name email role')
       .populate('target', 'name email role'),
-    AuditLogModel.estimatedDocumentCount(), // fast: no filter, so MongoDB reads its stored count
+    // No filter: MongoDB's stored count is instant. With filters: count matches.
+    filtered ? AuditLogModel.countDocuments(filter) : AuditLogModel.estimatedDocumentCount(),
   ]);
   res.json({
     logs: logs.map((l) => l.toJSON()),
@@ -379,5 +420,14 @@ export async function listAuditLogs(req: Request, res: Response) {
     page,
     pageSize,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    retentionDays: env.AUDIT_RETENTION_DAYS,
   });
+}
+
+// GET /api/admin/audit-logs/actors : the people who appear as "who did it",
+// for the Activity page's person filter.
+export async function listAuditActors(_req: Request, res: Response) {
+  const ids = await AuditLogModel.distinct('actor');
+  const people = await UserModel.find({ _id: { $in: ids } }).select('name role').sort({ name: 1 });
+  res.json({ actors: people.map((p) => ({ id: p.id, name: p.name, role: p.role })) });
 }

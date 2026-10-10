@@ -32,6 +32,7 @@ export interface RegisterRequest {
   role: SelfRegisterRole
   acceptTerms: boolean
   website: string // honeypot, always '' for real users
+  joinCode?: string // students: their class code
 }
 
 export interface InviteDetails {

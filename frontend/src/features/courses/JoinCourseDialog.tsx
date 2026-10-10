@@ -16,12 +16,8 @@ import { Label } from '@/components/ui/label'
 import { FieldError } from '@/features/auth/pages/AuthCard'
 import { parseApiError } from '@/features/auth/apiError'
 import { useJoinCourseMutation } from './coursesApi'
+import { tidyJoinCodeInput } from './joinCode'
 
-// Turns whatever is typed ("k7q2mx", "K7Q 2MX") into the display form "K7Q-2MX".
-const tidy = (input: string) => {
-  const raw = input.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
-  return raw.length > 3 ? `${raw.slice(0, 3)}-${raw.slice(3)}` : raw
-}
 
 export function JoinCourseDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   return (
@@ -69,7 +65,7 @@ function JoinForm({ onDone }: { onDone: () => void }) {
           placeholder="K7Q-2MX"
           value={code}
           onChange={(e) => {
-            setCode(tidy(e.target.value))
+            setCode(tidyJoinCodeInput(e.target.value))
             setError('')
           }}
           aria-invalid={!!error}

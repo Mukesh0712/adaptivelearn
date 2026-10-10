@@ -36,13 +36,13 @@ import type { User } from '@/features/auth/types'
 import { ROLE_LABEL } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import {
-  useApproveUserMutation,
   useChangeRoleMutation,
   useChangeStatusMutation,
   useEraseUserMutation,
-  useRejectUserMutation,
   useResendInviteMutation,
 } from './adminApi'
+import { useApproveRequestsMutation, useRejectRequestsMutation } from '@/features/approvals/approvalsApi'
+import { showApprovalResult } from '@/features/approvals/showResult'
 import { InviteResult } from './InviteDialog'
 import { ASSIGNABLE_ROLES, type AssignableRole, type InviteResponse } from './types'
 
@@ -56,12 +56,12 @@ export function UserActions({ user }: { user: User }) {
   const [resent, setResent] = useState<InviteResponse | null>(null)
   const [resendInvite] = useResendInviteMutation()
   const [changeStatus] = useChangeStatusMutation()
-  const [approveUser] = useApproveUserMutation()
+  const [approveUser] = useApproveRequestsMutation()
   const close = () => setDialog(null)
 
   const approve = async () => {
     try {
-      toast.success((await approveUser(user.id).unwrap()).message)
+      showApprovalResult(await approveUser([user.id]).unwrap())
     } catch (err) {
       toast.error(parseApiError(err).message)
     }
@@ -289,12 +289,12 @@ function DeactivateConfirm({ user, onDone }: { user: User; onDone: () => void })
 }
 
 function RejectConfirm({ user, onDone }: { user: User; onDone: () => void }) {
-  const [rejectUser, { isLoading }] = useRejectUserMutation()
+  const [rejectUser, { isLoading }] = useRejectRequestsMutation()
   const [error, setError] = useState('')
 
   const confirm = async () => {
     try {
-      toast.success((await rejectUser(user.id).unwrap()).message)
+      showApprovalResult(await rejectUser([user.id]).unwrap())
       onDone()
     } catch (err) {
       setError(parseApiError(err).message)
