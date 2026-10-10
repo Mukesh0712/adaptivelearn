@@ -11,6 +11,7 @@ export interface OutlineLesson {
   id: string
   title: string
   status: LessonStatus
+  done?: boolean // students only: they finished it
 }
 
 export interface OutlineModule {
@@ -25,6 +26,13 @@ export interface CourseContent {
   course: { id: string; title: string; code: string; status: 'active' | 'archived' }
   canEdit: boolean
   modules: OutlineModule[]
+  progress?: Progress // students only
+}
+
+// Published lessons finished out of all published lessons.
+export interface Progress {
+  done: number
+  total: number
 }
 
 export type ResourceKind = 'video' | 'link' | 'file'
@@ -75,6 +83,7 @@ export interface LessonResponse {
   canEdit: boolean
   previous: LessonLink | null
   next: LessonLink | null
+  done?: boolean // students only
 }
 
 export interface LessonChanges {

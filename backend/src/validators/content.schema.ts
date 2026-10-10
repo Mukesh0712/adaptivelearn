@@ -62,3 +62,7 @@ export const newResourceSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 export type NewResourceInput = z.infer<typeof newResourceSchema>;
+
+// PUT …/lessons/:lessonId/progress  { done } : a student marks a lesson done (or not).
+export const progressSchema = z.object({ done: z.boolean({ error: 'done must be true or false' }) });
+export type ProgressInput = z.infer<typeof progressSchema>;

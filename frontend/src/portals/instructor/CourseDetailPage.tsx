@@ -346,6 +346,7 @@ function StudentsCard({ course }: { course: Course }) {
             <TableHeader>
               <TableRow>
                 <TableHead className="pl-4">Name</TableHead>
+                <TableHead className="w-40">Progress</TableHead>
                 <TableHead className="hidden sm:table-cell">Joined</TableHead>
                 <TableHead className="w-px pr-4">
                   <span className="sr-only">Actions</span>
@@ -361,6 +362,9 @@ function StudentsCard({ course }: { course: Course }) {
                       {s.status !== 'active' && <StatusBadge status={s.status} />}
                     </div>
                     <div className="text-xs text-muted-foreground">{s.email}</div>
+                  </TableCell>
+                  <TableCell>
+                    <StudentProgress done={s.progress.done} total={s.progress.total} name={s.name} />
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">{formatDate(s.joinedAt)}</TableCell>
                   <TableCell className="pr-4 text-right">
@@ -405,5 +409,32 @@ function StudentsCard({ course }: { course: Course }) {
         </AlertDialogContent>
       </AlertDialog>
     </Card>
+  )
+}
+
+// Compact progress for a class-list row: "3/7" and a thin bar.
+function StudentProgress({ done, total, name }: { done: number; total: number; name: string }) {
+  if (!total) return <span className="text-xs text-muted-foreground">No lessons yet</span>
+  const percent = Math.round((done / total) * 100)
+  return (
+    <div className="grid gap-1">
+      <span className="text-xs tabular-nums">
+        {done}/{total} · {percent}%
+      </span>
+      <div
+        role="progressbar"
+        aria-label={`${name}'s progress`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+        aria-valuetext={`${percent}%, ${done} of ${total} lessons done`}
+        className="h-1.5 overflow-hidden rounded-full bg-muted"
+      >
+        <div
+          className={percent === 100 ? 'h-full bg-emerald-600' : 'h-full bg-primary'}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
   )
 }

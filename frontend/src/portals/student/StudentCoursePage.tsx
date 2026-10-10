@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router'
-import { ArrowLeft, ArrowRight, BookOpen, FileText } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, CheckCircle2, FileText } from 'lucide-react'
 import { PageMeta } from '@/components/PageMeta'
+import { ProgressBar } from '@/components/ProgressBar'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -45,8 +46,12 @@ export default function StudentCoursePage() {
     )
   }
 
-  const { course, modules } = data
-  const first = modules[0]?.lessons[0]
+  const { course, modules, progress } = data
+  const all = modules.flatMap((m) => m.lessons)
+  // "Continue" opens the first lesson not done yet (or the first one).
+  const nextUp = all.find((l) => !l.done) ?? all[0]
+  const started = all.some((l) => l.done)
+  const finished = all.length > 0 && all.every((l) => l.done)
   const lessonPath = (id: string) => `/student/courses/${course.id}/lessons/${id}`
 
   return (
@@ -63,14 +68,18 @@ export default function StudentCoursePage() {
               </Badge>
             )}
           </div>
-          {first && (
-            <Link to={lessonPath(first.id)} className={buttonVariants()}>
-              Start from the beginning
+          {nextUp && (
+            <Link to={lessonPath(nextUp.id)} className={buttonVariants()}>
+              {finished ? 'Review from the beginning' : started ? 'Continue' : 'Start from the beginning'}
               <ArrowRight aria-hidden="true" />
             </Link>
           )}
         </div>
       </div>
+
+      {progress && progress.total > 0 && (
+        <ProgressBar done={progress.done} total={progress.total} label={`Your progress in ${course.title}`} className="max-w-md" />
+      )}
 
       {!modules.length ? (
         <Card>
@@ -103,8 +112,13 @@ export default function StudentCoursePage() {
                         to={lessonPath(lesson.id)}
                         className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted"
                       >
-                        <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        {lesson.done ? (
+                          <CheckCircle2 className="size-4 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+                        ) : (
+                          <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        )}
                         <span className="break-words">{lesson.title}</span>
+                        {lesson.done && <span className="sr-only"> (done)</span>}
                       </Link>
                     </li>
                   ))}

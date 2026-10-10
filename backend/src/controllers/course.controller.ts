@@ -3,9 +3,11 @@ import type { Types } from 'mongoose';
 import { CourseModel, type CourseDocument } from '../models/Course.js';
 import { EnrollmentModel } from '../models/Enrollment.js';
 import { LessonModel } from '../models/Lesson.js';
+import { LessonProgressModel } from '../models/LessonProgress.js';
 import { ModuleModel } from '../models/Module.js';
 import { deleteStoredFiles } from '../utils/fileStorage.js';
 import { storedIds } from './content.controller.js';
+import { classProgress, studentProgress } from '../utils/progress.js';
 import { UserModel } from '../models/User.js';
 import { ApiError } from '../utils/ApiError.js';
 import { audit } from '../utils/audit.js';
@@ -159,6 +161,7 @@ export async function listStudents(req: Request, res: Response) {
       'student',
       'name email status',
     );
+  const progress = await classProgress(course._id);
   res.json({
     students: enrollments
       .filter((e) => e.student) // skip enrolments whose user no longer exists
@@ -168,6 +171,7 @@ export async function listStudents(req: Request, res: Response) {
         email: e.student!.email,
         status: e.student!.status ?? 'active',
         joinedAt: e.joinedAt,
+        progress: { done: progress.done.get(String(e.student!._id)) ?? 0, total: progress.total },
       })),
   });
 }
@@ -230,10 +234,13 @@ export async function listEnrolledCourses(req: Request, res: Response) {
       path: 'course',
       populate: { path: 'instructor', select: 'name' },
     });
+  const active = enrollments.filter((e) => e.course && e.course.status === 'active'); // archived courses are hidden
+  const progress = await studentProgress(req.user!.id, active.map((e) => e.course!._id));
   res.json({
-    courses: enrollments
-      .filter((e) => e.course && e.course.status === 'active') // archived courses are hidden
-      .map((e) => studentView(e.course!, e.course!.instructor?.name ?? 'Instructor', e.joinedAt)),
+    courses: active.map((e) => ({
+      ...studentView(e.course!, e.course!.instructor?.name ?? 'Instructor', e.joinedAt),
+      progress: progress.get(e.course!.id) ?? { done: 0, total: 0 },
+    })),
   });
 }
 
@@ -260,7 +267,11 @@ export async function deleteCourse(req: Request, res: Response) {
   // Its modules, lessons and stored files go with it (nobody ever read them:
   // it was never joined).
   const files = await LessonModel.find({ course: course._id, 'resources.kind': 'file' }).select('resources');
-  await Promise.all([LessonModel.deleteMany({ course: course._id }), ModuleModel.deleteMany({ course: course._id })]);
+  await Promise.all([
+    LessonModel.deleteMany({ course: course._id }),
+    ModuleModel.deleteMany({ course: course._id }),
+    LessonProgressModel.deleteMany({ course: course._id }),
+  ]);
   await deleteStoredFiles(files.flatMap((l) => storedIds(l.resources)));
   await audit(req.user!.id, 'course.deleted', null, { courseId: course.id, title: course.title });
   res.json({ message: `"${course.title}" deleted` });

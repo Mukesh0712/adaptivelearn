@@ -8,7 +8,9 @@ import type { Types } from 'mongoose';
 import { CourseModel, type CourseDocument } from '../models/Course.js';
 import { EnrollmentModel } from '../models/Enrollment.js';
 import { LessonModel, MAX_RESOURCES } from '../models/Lesson.js';
+import { LessonProgressModel } from '../models/LessonProgress.js';
 import { ModuleModel } from '../models/Module.js';
+import { finishedLessons } from '../utils/progress.js';
 import { ApiError } from '../utils/ApiError.js';
 import { checkFile, cleanFileName, MAX_FILE_BYTES } from '../utils/fileTypes.js';
 import { deleteStoredFiles, fetchStoredFile, storageEnabled, StorageError, storeFile } from '../utils/fileStorage.js';
@@ -19,6 +21,7 @@ import {
   type NewResourceInput,
   type NewLessonInput,
   type OrderInput,
+  type ProgressInput,
   type UpdateLessonInput,
 } from '../validators/content.schema.js';
 
@@ -88,12 +91,25 @@ async function outline(courseId: Types.ObjectId, publishedOnly: boolean) {
 // GET /api/courses/:courseId/content
 export async function getContent(req: Request, res: Response) {
   const { course, canEdit } = await courseAccess(req);
-  res.json({
-    course: { id: course.id, title: course.title, code: course.code, status: course.status },
-    canEdit,
-    modules: await outline(course._id, !canEdit),
-  });
+  const modules = await outline(course._id, !canEdit);
+  if (canEdit) {
+    res.json({ course: courseSummary(course), canEdit, modules });
+    return;
+  }
+  // Students also see which lessons they've finished.
+  const finished = await finishedLessons(req.user!.id, course._id);
+  const withDone = modules.map((m) => ({ ...m, lessons: m.lessons.map((l) => ({ ...l, done: finished.has(l.id) })) }));
+  const total = withDone.reduce((n, m) => n + m.lessons.length, 0);
+  const done = withDone.reduce((n, m) => n + m.lessons.filter((l) => l.done).length, 0);
+  res.json({ course: courseSummary(course), canEdit, modules: withDone, progress: { done, total } });
 }
+
+const courseSummary = (course: CourseDocument) => ({
+  id: course.id,
+  title: course.title,
+  code: course.code,
+  status: course.status,
+});
 
 // POST /api/courses/:courseId/modules  { title }
 export async function createModule(req: Request, res: Response) {
@@ -201,10 +217,14 @@ export async function getLesson(req: Request, res: Response) {
   const flat = modules.flatMap((m) => m.lessons.map((l) => ({ ...l, moduleTitle: m.title })));
   const i = flat.findIndex((l) => l.id === lesson.id);
   const moduleTitle = modules.find((m) => m.id === String(lesson.module))?.title ?? '';
+  const done = access.canEdit
+    ? undefined
+    : !!(await LessonProgressModel.exists({ lesson: lesson._id, student: req.user!.id }));
   res.json({
     lesson: { ...lesson.toJSON(), moduleTitle },
     course: { id: access.course.id, title: access.course.title },
     canEdit: access.canEdit,
+    ...(done === undefined ? {} : { done }),
     previous: i > 0 ? { id: flat[i - 1]!.id, title: flat[i - 1]!.title } : null,
     next: i >= 0 && i < flat.length - 1 ? { id: flat[i + 1]!.id, title: flat[i + 1]!.title } : null,
   });
@@ -234,7 +254,10 @@ export async function deleteLesson(req: Request, res: Response) {
   const access = await editAccess(req);
   const lesson = await lessonIn(req, access);
   await lesson.deleteOne();
-  await deleteStoredFiles(storedIds(lesson.resources));
+  await Promise.all([
+    deleteStoredFiles(storedIds(lesson.resources)),
+    LessonProgressModel.deleteMany({ lesson: lesson._id }),
+  ]);
   // Close the gap so positions stay 0, 1, 2…
   await LessonModel.updateMany({ module: lesson.module, position: { $gt: lesson.position } }, { $inc: { position: -1 } });
   res.json({ message: `Lesson "${lesson.title}" deleted` });
@@ -391,4 +414,30 @@ export async function downloadResourceFile(req: Request, res: Response) {
   Readable.fromWeb(upstream.body as WebReadableStream)
     .on('error', () => res.destroy())
     .pipe(res);
+}
+
+// PUT /api/courses/:courseId/lessons/:lessonId/progress  { done }
+// Students only, for a published lesson of a course they're in (the same
+// access rule as reading it). Safe to repeat: marking done twice is a no-op.
+export async function setProgress(req: Request, res: Response) {
+  if (req.user!.role !== 'student') throw ApiError.forbidden('Only students track their progress');
+  const access = await courseAccess(req);
+  const lesson = await lessonIn(req, access);
+  const { done } = req.body as ProgressInput;
+  const key = { lesson: lesson._id, student: req.user!.id };
+  if (done) {
+    try {
+      await LessonProgressModel.updateOne(
+        key,
+        { $setOnInsert: { course: access.course._id, completedAt: new Date() } },
+        { upsert: true },
+      );
+    } catch (err) {
+      // Two clicks at the same moment: the unique index stopped the second. Fine.
+      if ((err as { code?: number }).code !== 11000) throw err;
+    }
+  } else {
+    await LessonProgressModel.deleteOne(key);
+  }
+  res.json({ done, message: done ? 'Marked as done' : 'Marked as not done' });
 }

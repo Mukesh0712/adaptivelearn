@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { Link, useParams } from 'react-router'
-import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Circle } from 'lucide-react'
+import { toast } from 'sonner'
 import { PageMeta } from '@/components/PageMeta'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { parseApiError } from '@/features/auth/apiError'
-import { useLessonQuery } from '@/features/content/contentApi'
+import { useLessonQuery, useSetProgressMutation } from '@/features/content/contentApi'
 import { Markdown } from '@/features/content/Markdown'
 import { FileCard, LinkCard, VideoEmbed } from '@/features/content/Resources'
 
@@ -15,6 +16,7 @@ export default function LessonReaderPage() {
   const { courseId = '', lessonId = '' } = useParams()
   const { data, error, isFetching, refetch } = useLessonQuery({ courseId, lessonId })
   const heading = useRef<HTMLHeadingElement>(null)
+  const [setProgress, { isLoading: isSaving }] = useSetProgressMutation()
   const coursePath = `/student/courses/${courseId}`
   const lessonPath = (id: string) => `${coursePath}/lessons/${id}`
   const current = data?.lesson.id === lessonId ? data : undefined
@@ -118,6 +120,28 @@ export default function LessonReaderPage() {
           </ul>
         </section>
       )}
+
+      {/* A toggle: aria-pressed says whether it's on; the name stays the same. */}
+      <div className="flex max-w-3xl flex-wrap items-center gap-3 rounded-lg border bg-muted/40 px-4 py-3">
+        <Button
+          variant={current.done ? 'secondary' : 'outline'}
+          aria-pressed={!!current.done}
+          aria-label="Mark as done"
+          disabled={isSaving}
+          onClick={() =>
+            void setProgress({ courseId, lessonId: lesson.id, done: !current.done })
+              .unwrap()
+              .catch((err: unknown) => toast.error(parseApiError(err).message))
+          }
+          className={current.done ? 'text-emerald-800 dark:text-emerald-200' : undefined}
+        >
+          {current.done ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}
+          {current.done ? 'Done' : 'Mark as done'}
+        </Button>
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          {current.done ? 'Nice work! Click again if you want to undo.' : 'Finished reading? Mark it to track your progress.'}
+        </p>
+      </div>
 
       <nav aria-label="Lessons" className="flex max-w-3xl flex-col gap-2 border-t pt-4 sm:flex-row sm:justify-between">
         {previous ? (

@@ -17,6 +17,7 @@ import {
   reorderResources,
   uploadResourceFile,
   downloadResourceFile,
+  setProgress,
 } from '../controllers/content.controller.js';
 import { uploadLimiter } from '../middleware/rateLimiters.js';
 import {
@@ -24,6 +25,7 @@ import {
   newLessonSchema,
   newResourceSchema,
   orderSchema,
+  progressSchema,
   updateLessonSchema,
 } from '../validators/content.schema.js';
 
@@ -54,3 +56,4 @@ contentRouter.delete('/lessons/:lessonId/resources/:resourceId', authenticate, d
 // controller checks the file and its title itself).
 contentRouter.post('/lessons/:lessonId/files', authenticate, uploadLimiter, uploadResourceFile);
 contentRouter.get('/lessons/:lessonId/resources/:resourceId/file', authenticate, downloadResourceFile);
+contentRouter.put('/lessons/:lessonId/progress', authenticate, validate(progressSchema), setProgress);

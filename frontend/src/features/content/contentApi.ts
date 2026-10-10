@@ -153,6 +153,38 @@ export const contentApi = baseApi.injectEndpoints({
         }
       },
     }),
+    // A student marks a lesson done / not done. The lesson page and the
+    // outline update at once; "My courses" refetches its percentages.
+    setProgress: build.mutation<{ done: boolean } & Message, CourseArg & { lessonId: string; done: boolean }>({
+      query: ({ courseId, lessonId, done }) => ({
+        url: `/courses/${courseId}/lessons/${lessonId}/progress`,
+        method: 'PUT',
+        body: { done },
+      }),
+      invalidatesTags: ['Courses'],
+      async onQueryStarted({ courseId, lessonId, done }, { dispatch, queryFulfilled }) {
+        const patches = [
+          dispatch(
+            contentApi.util.updateQueryData('lesson', { courseId, lessonId }, (draft) => {
+              draft.done = done
+            }),
+          ),
+          dispatch(
+            contentApi.util.updateQueryData('courseContent', courseId, (draft) => {
+              const lesson = draft.modules.flatMap((m) => m.lessons).find((l) => l.id === lessonId)
+              if (!lesson || lesson.done === done) return
+              lesson.done = done
+              if (draft.progress) draft.progress.done += done ? 1 : -1
+            }),
+          ),
+        ]
+        try {
+          await queryFulfilled
+        } catch {
+          patches.forEach((p) => p.undo())
+        }
+      },
+    }),
     deleteLesson: build.mutation<Message, CourseArg & { lessonId: string }>({
       query: ({ courseId, lessonId }) => ({ url: `/courses/${courseId}/lessons/${lessonId}`, method: 'DELETE' }),
       invalidatesTags: ['Content'],
@@ -171,6 +203,7 @@ export const {
   useLessonQuery,
   useUpdateLessonMutation,
   useDeleteLessonMutation,
+  useSetProgressMutation,
   useAddResourceMutation,
   useUploadFileMutation,
   useDownloadFileMutation,

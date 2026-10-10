@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { ArrowRight, BookOpen, LogOut, MoreHorizontal, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageMeta } from '@/components/PageMeta'
+import { ProgressBar } from '@/components/ProgressBar'
 import { SubmitButton } from '@/components/SubmitButton'
 import {
   AlertDialog,
@@ -145,9 +146,12 @@ function EnrolledCourseCard({ course }: { course: EnrolledCourse }) {
           <CardDescription className="line-clamp-2 break-words">{course.description}</CardDescription>
         )}
       </CardHeader>
-      <CardContent className="mt-auto text-sm text-muted-foreground">
+      <CardContent className="mt-auto grid gap-3 text-sm text-muted-foreground">
+        <ProgressBar done={course.progress.done} total={course.progress.total} label={`Your progress in ${course.title}`} />
+        <div>
         <p>Instructor: {course.instructorName}</p>
         <p className="text-xs">Joined {formatDate(course.joinedAt)}</p>
+        </div>
       </CardContent>
       <CardFooter>
         <Link
