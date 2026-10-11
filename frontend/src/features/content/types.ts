@@ -1,3 +1,5 @@
+import type { StudentQuizItem } from '@/features/quizzes/types'
+
 // Shapes returned by backend/src/controllers/content.controller.ts.
 
 export type LessonStatus = 'draft' | 'published'
@@ -14,10 +16,18 @@ export interface OutlineLesson {
   done?: boolean // students only: they finished it
 }
 
+export interface OutlineQuiz {
+  id: string
+  title: string
+  status: LessonStatus
+  kind: 'practice' | 'graded'
+}
+
 export interface OutlineModule {
   id: string
   title: string
   lessons: OutlineLesson[]
+  quizzes?: (OutlineQuiz | StudentQuizItem)[] // editors: OutlineQuiz; students: StudentQuizItem
 }
 
 // GET /courses/:courseId/content : the course outline. Students get only
@@ -27,6 +37,7 @@ export interface CourseContent {
   canEdit: boolean
   modules: OutlineModule[]
   progress?: Progress // students only
+  courseTests?: StudentQuizItem[] // students only: quizzes not in a module
 }
 
 // Published lessons finished out of all published lessons.

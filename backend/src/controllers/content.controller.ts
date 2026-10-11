@@ -10,7 +10,9 @@ import { EnrollmentModel } from '../models/Enrollment.js';
 import { LessonModel, MAX_RESOURCES } from '../models/Lesson.js';
 import { LessonProgressModel } from '../models/LessonProgress.js';
 import { ModuleModel } from '../models/Module.js';
+import { QuizModel } from '../models/Quiz.js';
 import { finishedLessons } from '../utils/progress.js';
+import { studentQuizSummaries } from './attempt.controller.js';
 import { ApiError } from '../utils/ApiError.js';
 import { checkFile, cleanFileName, MAX_FILE_BYTES } from '../utils/fileTypes.js';
 import { deleteStoredFiles, fetchStoredFile, storageEnabled, StorageError, storeFile } from '../utils/fileStorage.js';
@@ -25,7 +27,7 @@ import {
   type UpdateLessonInput,
 } from '../validators/content.schema.js';
 
-interface Access {
+export interface Access {
   course: CourseDocument;
   canEdit: boolean; // the course's instructor, or an admin
 }
@@ -40,7 +42,7 @@ const params = (req: Request) => {
 //  - its instructor and admins: everything (including drafts);
 //  - an enrolled student: read published lessons of an active course;
 //  - anyone else: 404, the same as a course that doesn't exist.
-async function courseAccess(req: Request): Promise<Access> {
+export async function courseAccess(req: Request): Promise<Access> {
   const { courseId } = params(req);
   const course = await CourseModel.findById(courseId);
   if (!course) throw ApiError.notFound('Course not found');
@@ -54,7 +56,7 @@ async function courseAccess(req: Request): Promise<Access> {
   throw ApiError.notFound('Course not found');
 }
 
-async function editAccess(req: Request): Promise<Access> {
+export async function editAccess(req: Request): Promise<Access> {
   const access = await courseAccess(req);
   if (!access.canEdit) throw ApiError.forbidden('Only the course instructor can change its content');
   return access;
@@ -69,7 +71,9 @@ async function moduleIn(course: CourseDocument, moduleId?: string) {
 
 // The course outline in reading order: modules by position, lessons by
 // position. Students only ever get published lessons.
-async function outline(courseId: Types.ObjectId, publishedOnly: boolean) {
+// keep: module ids to show even with no published lessons (e.g. they have
+// a published quiz).
+async function outline(courseId: Types.ObjectId, publishedOnly: boolean, keep: Set<string> = new Set()) {
   const [modules, lessons] = await Promise.all([
     ModuleModel.find({ course: courseId }).sort({ position: 1, _id: 1 }),
     LessonModel.find({ course: courseId, ...(publishedOnly ? { status: 'published' } : {}) })
@@ -85,23 +89,54 @@ async function outline(courseId: Types.ObjectId, publishedOnly: boolean) {
         .map((l) => ({ id: l.id, title: l.title, status: l.status })),
     }))
     // Students don't see empty modules (e.g. only drafts so far).
-    .filter((m) => !publishedOnly || m.lessons.length > 0);
+    .filter((m) => !publishedOnly || m.lessons.length > 0 || keep.has(m.id));
 }
 
 // GET /api/courses/:courseId/content
 export async function getContent(req: Request, res: Response) {
   const { course, canEdit } = await courseAccess(req);
-  const modules = await outline(course._id, !canEdit);
   if (canEdit) {
-    res.json({ course: courseSummary(course), canEdit, modules });
+    const [modules, quizzes] = await Promise.all([
+      outline(course._id, false),
+      // Editors also see each module's quizzes (drafts included).
+      QuizModel.find({ course: course._id, module: { $ne: null } })
+        .sort({ createdAt: 1, _id: 1 })
+        .select('title module status kind'),
+    ]);
+    res.json({
+      course: courseSummary(course),
+      canEdit,
+      modules: modules.map((m) => ({
+        ...m,
+        quizzes: quizzes
+          .filter((q) => String(q.module) === m.id)
+          .map((q) => ({ id: q.id, title: q.title, status: q.status, kind: q.kind })),
+      })),
+    });
     return;
   }
-  // Students also see which lessons they've finished.
-  const finished = await finishedLessons(req.user!.id, course._id);
-  const withDone = modules.map((m) => ({ ...m, lessons: m.lessons.map((l) => ({ ...l, done: finished.has(l.id) })) }));
+  // Students: published lessons (with the ones they've finished) and the
+  // published quizzes, inside their module or as course tests, with their
+  // best score. A module with only a quiz so far is still shown.
+  const [finished, quizzes] = await Promise.all([
+    finishedLessons(req.user!.id, course._id),
+    studentQuizSummaries(course._id, req.user!.id),
+  ]);
+  const modules = await outline(course._id, true, new Set(quizzes.flatMap((q) => (q.module ? [q.module] : []))));
+  const withDone = modules.map((m) => ({
+    ...m,
+    lessons: m.lessons.map((l) => ({ ...l, done: finished.has(l.id) })),
+    quizzes: quizzes.filter((q) => q.module === m.id),
+  }));
   const total = withDone.reduce((n, m) => n + m.lessons.length, 0);
   const done = withDone.reduce((n, m) => n + m.lessons.filter((l) => l.done).length, 0);
-  res.json({ course: courseSummary(course), canEdit, modules: withDone, progress: { done, total } });
+  res.json({
+    course: courseSummary(course),
+    canEdit,
+    modules: withDone,
+    courseTests: quizzes.filter((q) => !q.module),
+    progress: { done, total },
+  });
 }
 
 const courseSummary = (course: CourseDocument) => ({
@@ -141,9 +176,16 @@ export async function renameModule(req: Request, res: Response) {
 export async function deleteModule(req: Request, res: Response) {
   const { course } = await editAccess(req);
   const mod = await moduleIn(course, params(req).moduleId);
-  const lessons = await LessonModel.countDocuments({ module: mod._id });
-  if (lessons > 0) {
-    throw ApiError.conflict(`"${mod.title}" still has ${lessons} lesson${lessons === 1 ? '' : 's'}. Delete them first.`);
+  const [lessons, quizzes] = await Promise.all([
+    LessonModel.countDocuments({ module: mod._id }),
+    QuizModel.countDocuments({ module: mod._id }),
+  ]);
+  if (lessons > 0 || quizzes > 0) {
+    const parts = [
+      lessons ? `${lessons} lesson${lessons === 1 ? '' : 's'}` : '',
+      quizzes ? `${quizzes} quiz${quizzes === 1 ? '' : 'zes'}` : '',
+    ].filter(Boolean);
+    throw ApiError.conflict(`"${mod.title}" still has ${parts.join(' and ')}. Delete or move them first.`);
   }
   await mod.deleteOne();
   // Close the gap so positions stay 0, 1, 2…
@@ -455,3 +497,4 @@ export async function setProgress(req: Request, res: Response) {
   }
   res.json({ done, message: done ? 'Marked as done' : 'Marked as not done' });
 }
+

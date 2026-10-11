@@ -71,6 +71,17 @@ export const uploadLimiter = limiter(
   (req) => `user:${req.user!.id}`,
 );
 
+// Quiz answer autosaves, per ACCOUNT. Answering normally sends one save per
+// click or typing pause, far below this; it only stops a script from
+// flooding the database with writes.
+export const quizSaveLimiter = limiter(
+  5,
+  600,
+  'Too many saves in a short time. Wait a moment, then continue.',
+  false,
+  (req) => `user:${req.user!.id}`,
+);
+
 // Changing your password needs the current one. Only failed attempts count,
 // per ACCOUNT, so a stolen session can't be used to guess the current
 // password: 5 wrong guesses in 15 minutes and it stops.
