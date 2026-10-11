@@ -4,6 +4,7 @@ import { aiLimiter, quizSaveLimiter } from '../middleware/rateLimiters.js';
 import { validate } from '../middleware/validate.js';
 import {
   addQuestion,
+  addQuestions,
   createQuiz,
   deleteQuestion,
   deleteQuiz,
@@ -23,8 +24,16 @@ import {
   submitAttempt,
 } from '../controllers/attempt.controller.js';
 import { explainAnswer } from '../controllers/aiFeedback.controller.js';
+import { generateQuestions } from '../controllers/aiTools.controller.js';
 import { orderSchema } from '../validators/content.schema.js';
-import { answerSchema, newQuizSchema, questionSchema, updateQuizSchema } from '../validators/quiz.schema.js';
+import {
+  answerSchema,
+  bulkQuestionsSchema,
+  generateQuestionsSchema,
+  newQuizSchema,
+  questionSchema,
+  updateQuizSchema,
+} from '../validators/quiz.schema.js';
 
 // Quizzes, mounted at /api/courses/:courseId (like course content). Every
 // handler checks that the caller may edit this course (instructor/admin).
@@ -39,6 +48,9 @@ quizRouter.get('/quizzes/:quizId', authenticate, getQuizForEditing);
 quizRouter.patch('/quizzes/:quizId', authenticate, validate(updateQuizSchema), updateQuiz);
 quizRouter.delete('/quizzes/:quizId', authenticate, deleteQuiz);
 quizRouter.post('/quizzes/:quizId/questions', authenticate, validate(questionSchema), addQuestion);
+quizRouter.post('/quizzes/:quizId/questions/bulk', authenticate, validate(bulkQuestionsSchema), addQuestions);
+// AI draft questions from a lesson (instructor/admin); nothing is saved.
+quizRouter.post('/quizzes/:quizId/ai/questions', authenticate, aiLimiter, validate(generateQuestionsSchema), generateQuestions);
 // Fixed path before /:questionId.
 quizRouter.put('/quizzes/:quizId/questions/order', authenticate, validate(orderSchema), reorderQuestions);
 quizRouter.put('/quizzes/:quizId/questions/:questionId', authenticate, validate(questionSchema), updateQuestion);

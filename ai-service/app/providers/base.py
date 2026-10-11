@@ -14,6 +14,13 @@ class AIProvider(Protocol):
     # The model that answers, e.g. "mock-1".
     model: str
 
-    async def complete(self, *, system: str, prompt: str, max_tokens: int) -> str:
-        """Send one request to the model and return its text answer."""
+    async def complete(
+        self, *, system: str, prompt: str, max_tokens: int, json_schema: dict | None = None
+    ) -> str:
+        """Send one request to the model and return its text answer.
+
+        json_schema: when given, the answer must be JSON matching it. Real
+        providers pass it to the model's "structured output" feature; the
+        answer is still checked here afterwards, never trusted blindly.
+        """
         ...

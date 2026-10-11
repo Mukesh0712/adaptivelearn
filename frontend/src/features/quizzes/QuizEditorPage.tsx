@@ -27,6 +27,7 @@ import { parseApiError } from '@/features/auth/apiError'
 import { LessonStatusBadge } from '@/features/content/LessonStatusBadge'
 import { MoveButtons } from '@/features/content/MoveButtons'
 import { moved } from '@/features/content/utils'
+import { AiQuestionsButton } from './AiQuestionsDialog'
 import { QuestionDialog } from './QuestionDialog'
 import {
   useDeleteQuestionMutation,
@@ -505,7 +506,13 @@ function QuestionsCard({ quiz, topics, courseId }: { quiz: Quiz; topics: string[
             ? `${quiz.questions.length} ${quiz.questions.length === 1 ? 'question' : 'questions'}, ${quiz.totalPoints} ${quiz.totalPoints === 1 ? 'point' : 'points'} in total.`
             : 'No questions yet.'}
         </CardDescription>
-        <CardAction>
+        <CardAction className="flex flex-wrap justify-end gap-2">
+          <AiQuestionsButton
+            courseId={courseId}
+            quizId={quiz.id}
+            moduleId={quiz.module}
+            room={MAX_QUESTIONS - quiz.questions.length}
+          />
           <Button size="sm" disabled={full} onClick={() => setEditing('new')}>
             <Plus aria-hidden="true" />
             Add question

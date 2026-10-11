@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/authenticate.js';
 import { validate } from '../middleware/validate.js';
+import { summarizeLesson } from '../controllers/aiTools.controller.js';
 import {
   createLesson,
   createModule,
@@ -19,7 +20,7 @@ import {
   downloadResourceFile,
   setProgress,
 } from '../controllers/content.controller.js';
-import { uploadLimiter } from '../middleware/rateLimiters.js';
+import { aiLimiter, uploadLimiter } from '../middleware/rateLimiters.js';
 import {
   moduleSchema,
   newLessonSchema,
@@ -49,6 +50,8 @@ contentRouter.put('/modules/:moduleId/lessons/order', authenticate, validate(ord
 contentRouter.get('/lessons/:lessonId', authenticate, getLesson);
 contentRouter.patch('/lessons/:lessonId', authenticate, validate(updateLessonSchema), updateLesson);
 contentRouter.delete('/lessons/:lessonId', authenticate, deleteLesson);
+// AI summary of the saved lesson text (instructor/admin).
+contentRouter.post('/lessons/:lessonId/ai/summary', authenticate, aiLimiter, summarizeLesson);
 contentRouter.post('/lessons/:lessonId/resources', authenticate, validate(newResourceSchema), addResource);
 contentRouter.put('/lessons/:lessonId/resources/order', authenticate, validate(orderSchema), reorderResources);
 contentRouter.delete('/lessons/:lessonId/resources/:resourceId', authenticate, deleteResource);

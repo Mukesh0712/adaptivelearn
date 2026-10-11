@@ -12,6 +12,7 @@ from app.config import load_settings
 from app.providers import get_provider
 from app.providers.base import AIProvider
 from app.security import require_internal_key
+from app.tasks import instructor
 from app.tasks.feedback import MAX_TOKENS, SYSTEM, FeedbackRequest, FeedbackResponse, build_prompt, clean_output
 
 log = logging.getLogger("ai-service")
@@ -54,11 +55,40 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
     return FeedbackResponse(feedback=clean_output(text), model=provider.model)
 
 
-async def ask(provider: AIProvider, *, system: str, prompt: str, max_tokens: int) -> str:
+@v1.post("/summary")
+async def summary(req: instructor.SummaryRequest) -> instructor.SummaryResponse:
+    provider = app.state.provider
+    text = await ask(
+        provider, system=instructor.SUMMARY_SYSTEM, prompt=instructor.summary_prompt(req), max_tokens=instructor.SUMMARY_TOKENS
+    )
+    return instructor.SummaryResponse(summary=clean_output(text), model=provider.model)
+
+
+@v1.post("/questions")
+async def questions(req: instructor.QuestionsRequest) -> instructor.QuestionsResponse:
+    provider = app.state.provider
+    text = await ask(
+        provider,
+        system=instructor.QUESTIONS_SYSTEM,
+        prompt=instructor.questions_prompt(req),
+        max_tokens=instructor.QUESTIONS_TOKENS,
+        json_schema=instructor.GeneratedQuestions.model_json_schema(),
+    )
+    try:
+        kept, dropped = instructor.parse_questions(text, req)
+    except ValueError:
+        log.warning("AI provider %s did not return question JSON", provider.name)
+        raise HTTPException(status_code=502, detail="The AI provider gave an unusable answer") from None
+    if not kept:
+        raise HTTPException(status_code=502, detail="The AI provider gave no usable questions")
+    return instructor.QuestionsResponse(questions=kept, dropped=dropped, model=provider.model)
+
+
+async def ask(provider: AIProvider, *, system: str, prompt: str, max_tokens: int, json_schema: dict | None = None) -> str:
     """One model call. Provider failures become a plain 502 for the backend;
     the details are logged here and never sent back."""
     try:
-        text = await provider.complete(system=system, prompt=prompt, max_tokens=max_tokens)
+        text = await provider.complete(system=system, prompt=prompt, max_tokens=max_tokens, json_schema=json_schema)
     except Exception:
         log.exception("AI provider %s failed", provider.name)
         raise HTTPException(status_code=502, detail="The AI provider failed") from None

@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { env } from '../config/env.js';
 import { AiError, aiEnabled, aiRequest, statusSchema, wakeAiService } from '../utils/aiClient.js';
+import { aiRequestsLeft, dailyLimit } from '../utils/aiQuota.js';
 
 // GET /api/admin/ai/status : is the AI service set up and answering?
 // Shown on the admin dashboard. Always answers 200 with what it found, so
@@ -24,4 +25,12 @@ export async function aiStatus(_req: Request, res: Response) {
     console.warn(`AI status check failed (${err.kind})${err.detail ? `: ${err.detail}` : ''}`);
     res.json({ configured: true, reachable: false, problem: err.message, limits });
   }
+}
+
+// GET /api/ai/me : can I use AI features, and how many requests are left
+// today? Lets pages show or hide the AI buttons.
+export async function aiMe(req: Request, res: Response) {
+  const limit = dailyLimit(req.user!.role);
+  const enabled = aiEnabled && limit > 0;
+  res.json({ enabled, limit, left: enabled ? await aiRequestsLeft(req.user!) : 0 });
 }
