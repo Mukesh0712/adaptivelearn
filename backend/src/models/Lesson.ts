@@ -22,7 +22,9 @@ const resourceSchema = new Schema({
   size: { type: Number }, // bytes
   mimeType: { type: String },
   publicId: { type: String },
-  provider: { type: String, enum: ['youtube', 'vimeo'] },
+  // Zoom recordings: the passcode students need (it's meant for the class).
+  passcode: { type: String, maxlength: 50 },
+  provider: { type: String, enum: ['youtube', 'vimeo', 'gdrive'] },
   videoId: { type: String },
   hash: { type: String },
   start: { type: Number },

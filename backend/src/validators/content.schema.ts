@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { LESSON_STATUSES } from '../models/Lesson.js';
-import { parseVideoUrl } from '../utils/videoUrl.js';
+import { parseVideoUrl, recordingPlatform } from '../utils/videoUrl.js';
 
 const objectId = z.string().regex(/^[a-f0-9]{24}$/);
 
@@ -46,7 +46,7 @@ export const newResourceSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('video'),
     title: resourceTitle,
-    url: resourceUrl.refine((u) => parseVideoUrl(u) !== null, 'Paste a YouTube or Vimeo video link'),
+    url: resourceUrl.refine((u) => parseVideoUrl(u) !== null, 'Paste a YouTube, Vimeo or Google Drive video link'),
   }),
   z.object({
     kind: z.literal('link'),
@@ -59,6 +59,11 @@ export const newResourceSchema = z.discriminatedUnion('kind', [
         return false;
       }
     }, 'Enter a full web address, starting with https://'),
+    // Zoom recordings only: the passcode students need to watch it.
+    passcode: z.string().trim().max(50, 'Passcode must be at most 50 characters').optional(),
+  }).refine((v) => !v.passcode || recordingPlatform(v.url) === 'zoom', {
+    message: 'A passcode can only be added to a Zoom recording link',
+    path: ['passcode'],
   }),
 ]);
 export type NewResourceInput = z.infer<typeof newResourceSchema>;

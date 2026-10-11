@@ -48,13 +48,14 @@ export interface Resource {
   kind: ResourceKind
   title: string
   url: string
-  provider?: 'youtube' | 'vimeo'
+  provider?: 'youtube' | 'vimeo' | 'gdrive'
   videoId?: string
   hash?: string
   start?: number
   fileName?: string // files only
   size?: number // bytes
   mimeType?: string
+  passcode?: string // Zoom recording links
 }
 
 export interface Lesson {

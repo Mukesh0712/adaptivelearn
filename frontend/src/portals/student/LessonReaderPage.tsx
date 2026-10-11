@@ -9,7 +9,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { parseApiError } from '@/features/auth/apiError'
 import { useLessonQuery, useSetProgressMutation } from '@/features/content/contentApi'
 import { Markdown } from '@/features/content/Markdown'
-import { FileCard, LinkCard, VideoEmbed } from '@/features/content/Resources'
+import { FileCard, LinkCard, RecordingCard, VideoEmbed } from '@/features/content/Resources'
+import { recordingPlatform } from '@/features/content/videoUrl'
 
 // Student: read one published lesson, with previous/next lesson links.
 export default function LessonReaderPage() {
@@ -63,7 +64,8 @@ export default function LessonReaderPage() {
 
   const { lesson, previous, next } = current
   const videos = lesson.resources.filter((r) => r.kind === 'video')
-  const links = lesson.resources.filter((r) => r.kind === 'link')
+  const recordings = lesson.resources.filter((r) => r.kind === 'link' && recordingPlatform(r.url))
+  const links = lesson.resources.filter((r) => r.kind === 'link' && !recordingPlatform(r.url))
   const files = lesson.resources.filter((r) => r.kind === 'file')
   return (
     <article className="space-y-6">
@@ -89,6 +91,21 @@ export default function LessonReaderPage() {
         <Markdown>{lesson.content}</Markdown>
       ) : (
         !videos.length && <p className="text-muted-foreground">This lesson has no text yet.</p>
+      )}
+
+      {recordings.length > 0 && (
+        <section aria-labelledby="recordings-heading" className="max-w-3xl space-y-3">
+          <h2 id="recordings-heading" className="text-lg font-semibold">
+            Class recordings
+          </h2>
+          <ul className="grid gap-2">
+            {recordings.map((r) => (
+              <li key={r.id}>
+                <RecordingCard resource={r} />
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {files.length > 0 && (

@@ -1,12 +1,16 @@
-// Turns a pasted YouTube or Vimeo link into { provider, videoId, ... }.
-// Only these two sites are accepted, and only the ID is kept: the embed
-// address is rebuilt from a fixed template in the browser, so a lesson can
-// never put an arbitrary website inside the page.
+// Turns a pasted YouTube, Vimeo or Google Drive link into { provider,
+// videoId, ... }. Only these sites are accepted, and only the ID is kept:
+// the embed address is rebuilt from a fixed template in the browser, so a
+// lesson can never put an arbitrary website inside the page.
+//
+// Also recognises Zoom and Teams recording links (recordingPlatform). Those
+// sites refuse to be shown inside other websites, so they become
+// "Class recording" cards that open in Zoom/Teams instead.
 //
 // Copy of backend/src/utils/videoUrl.ts, so the form can say "that's not a
 // video link" before sending. The server checks again. Keep the two in sync.
 
-export type VideoProvider = 'youtube' | 'vimeo'
+export type VideoProvider = 'youtube' | 'vimeo' | 'gdrive'
 
 export interface VideoRef {
   provider: VideoProvider
@@ -17,6 +21,7 @@ export interface VideoRef {
 
 const YOUTUBE_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com'])
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/
+const DRIVE_ID = /^[A-Za-z0-9_-]{20,100}$/
 
 // "90", "90s", "1m30s", "1h2m3s" → seconds.
 function parseStart(value: string | null): number | undefined {
@@ -60,6 +65,34 @@ export function parseVideoUrl(input: string): VideoRef | null {
     if (hash && /^[a-f0-9]{6,20}$/i.test(hash)) ref.hash = hash.toLowerCase()
     return withStart(ref)
   }
+  if (host === 'drive.google.com') {
+    // Google Drive (e.g. Google Meet recordings): drive.google.com/file/d/ID/view
+    // (or /preview, /edit), drive.google.com/open?id=ID, /uc?id=ID
+    const id = parts[0] === 'file' && parts[1] === 'd' ? parts[2] ?? '' : url.searchParams.get('id') ?? ''
+    return DRIVE_ID.test(id) ? { provider: 'gdrive', videoId: id } : null
+  }
+  return null
+}
+
+export type RecordingPlatform = 'zoom' | 'teams'
+
+// Zoom cloud recordings (…zoom.us/rec/share/… or /rec/play/…) and Teams /
+// Microsoft Stream recordings (SharePoint stream.aspx or /:v:/ links,
+// Microsoft Stream, Teams meeting recaps). null for anything else.
+export function recordingPlatform(input: string): RecordingPlatform | null {
+  let url: URL
+  try {
+    url = new URL(input.trim())
+  } catch {
+    return null
+  }
+  if (url.protocol !== 'https:') return null
+  const host = url.hostname.toLowerCase()
+  const path = url.pathname.toLowerCase()
+  if ((host === 'zoom.us' || host.endsWith('.zoom.us')) && path.startsWith('/rec/')) return 'zoom'
+  if (host.endsWith('.sharepoint.com') && (path.includes('/stream.aspx') || path.startsWith('/:v:/'))) return 'teams'
+  if (host === 'web.microsoftstream.com' || host === 'stream.office.com') return 'teams'
+  if (host === 'teams.microsoft.com' && path.includes('meetingrecap')) return 'teams'
   return null
 }
 
@@ -69,7 +102,11 @@ export function embedUrl(ref: VideoRef): string {
   if (ref.provider === 'youtube') {
     return `https://www.youtube-nocookie.com/embed/${ref.videoId}?rel=0${ref.start ? `&start=${ref.start}` : ''}`
   }
+  if (ref.provider === 'gdrive') return `https://drive.google.com/file/d/${ref.videoId}/preview`
   const params = new URLSearchParams({ dnt: '1' }) // Vimeo: "do not track"
   if (ref.hash) params.set('h', ref.hash)
   return `https://player.vimeo.com/video/${ref.videoId}?${params}${ref.start ? `#t=${ref.start}s` : ''}`
 }
+
+export const PROVIDER_LABEL: Record<VideoProvider, string> = { youtube: 'YouTube', vimeo: 'Vimeo', gdrive: 'Google Drive' }
+export const PLATFORM_LABEL: Record<RecordingPlatform, string> = { zoom: 'Zoom', teams: 'Teams' }

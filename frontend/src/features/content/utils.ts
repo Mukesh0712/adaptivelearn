@@ -1,5 +1,6 @@
 // Small helpers shared by the content components.
 import type { Resource } from './types'
+import { PLATFORM_LABEL, PROVIDER_LABEL, recordingPlatform } from './videoUrl'
 
 // Moves one id up or down in a list, giving the complete new order.
 export function moved(ids: string[], index: number, by: -1 | 1) {
@@ -23,10 +24,12 @@ export const shortUrl = (url: string) => url.replace(/^https?:\/\/(www\.)?/i, ''
 export const resourceTitle = (r: Resource) =>
   r.title ||
   (r.kind === 'video'
-    ? `${r.provider === 'vimeo' ? 'Vimeo' : 'YouTube'} video`
+    ? `${PROVIDER_LABEL[r.provider ?? 'youtube']} video`
     : r.kind === 'file'
       ? (r.fileName ?? 'File')
-      : hostnameOf(r.url))
+      : recordingPlatform(r.url)
+        ? `${PLATFORM_LABEL[recordingPlatform(r.url)!]} recording`
+        : hostnameOf(r.url))
 
 // 2_400_000 → "2.3 MB"
 export function formatBytes(bytes = 0) {
