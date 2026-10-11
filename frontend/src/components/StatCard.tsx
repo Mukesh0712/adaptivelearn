@@ -11,7 +11,7 @@ export function StatCard({
   loading = false,
 }: {
   label: string
-  value: number | undefined
+  value: number | string | undefined
   icon: LucideIcon
   hint?: string
   loading?: boolean

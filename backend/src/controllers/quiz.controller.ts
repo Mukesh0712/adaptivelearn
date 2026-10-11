@@ -71,7 +71,15 @@ export async function listQuizzes(req: Request, res: Response) {
     ModuleModel.find({ course: access.course._id }).select('title'),
   ]);
   const titles = new Map(modules.map((m) => [m.id as string, m.title]));
-  res.json({ quizzes: quizzes.map((q) => summary(q, titles)) });
+  // How many students have submitted each quiz (for the course page).
+  const submitted = await QuizAttemptModel.find({ course: access.course._id, status: 'submitted' }).select('quiz student');
+  const takers = new Map<string, Set<string>>();
+  for (const a of submitted) {
+    const key = String(a.quiz);
+    if (!takers.has(key)) takers.set(key, new Set());
+    takers.get(key)!.add(String(a.student));
+  }
+  res.json({ quizzes: quizzes.map((q) => ({ ...summary(q, titles), studentsTaken: takers.get(q.id)?.size ?? 0 })) });
 }
 
 // POST /api/courses/:courseId/quizzes  { title, module, kind } : a new draft.

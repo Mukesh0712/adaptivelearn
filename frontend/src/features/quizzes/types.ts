@@ -73,6 +73,7 @@ export interface QuizSummary {
   timeLimitMinutes: number | null
   questionCount: number
   totalPoints: number
+  studentsTaken?: number
 }
 
 export interface QuizEditorData {
@@ -204,4 +205,60 @@ export interface StudentQuizItem {
   attempts: number
   inProgress: boolean
   bestPercent: number | null
+}
+
+// ---- Instructor results (quizResults / reviewAttempt) ----
+
+export type ItemFlag = 'very_hard' | 'very_easy' | 'negative_discrimination' | 'low_discrimination'
+
+export interface ItemAnalysis {
+  questionId: string
+  type: QuestionType
+  text: string
+  points: number
+  topic: string
+  responses: number
+  unanswered: number
+  correct: number
+  difficulty: number // 0-1: average share of marks
+  discrimination: number | null // -1..1; null with fewer than 4 students
+  choices: { label: string; count: number; correct: boolean }[]
+  flags: ItemFlag[]
+}
+
+export interface GradebookRow {
+  id: string
+  name: string
+  email: string
+  enrolled: boolean
+  attempts: number
+  inProgress: boolean
+  bestPercent: number | null
+  passed: boolean | null
+  lastSubmittedAt: string | null
+  latestAttemptId: string | null
+  attemptIds: { id: string; number: number; percent: number }[]
+}
+
+export interface QuizResults {
+  quiz: { id: string; title: string; kind: QuizKind; passPercent: number; status: 'draft' | 'published' }
+  course: { id: string; title: string }
+  stats: {
+    enrolled: number
+    attempted: number
+    submittedAttempts: number
+    inProgress: number
+    averageBest: number | null
+    averageFirst: number | null
+    passRate: number | null
+  }
+  students: GradebookRow[]
+  items: ItemAnalysis[]
+  itemBase: number // how many first attempts the analysis is based on
+}
+
+export interface AttemptReviewData {
+  quiz: { id: string; title: string }
+  student: { id: string; name: string; email: string }
+  attempt: Attempt & { answered?: number; total?: number }
 }

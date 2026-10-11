@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { ArrowLeft, EyeOff, Pencil, Plus, Send, Trash2 } from 'lucide-react'
+import { ArrowLeft, BarChart3, EyeOff, Pencil, Plus, Send, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/app/hooks'
 import { PageMeta } from '@/components/PageMeta'
@@ -110,10 +110,16 @@ export default function QuizEditorPage() {
           <Badge variant="secondary">{quiz.kind === 'graded' ? 'Graded' : 'Practice'}</Badge>
           <LessonStatusBadge status={quiz.status} />
         </div>
-        <p className="text-sm text-muted-foreground">
-          {quiz.questions.length} {quiz.questions.length === 1 ? 'question' : 'questions'} · {quiz.totalPoints}{' '}
-          {quiz.totalPoints === 1 ? 'point' : 'points'}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">
+            {quiz.questions.length} {quiz.questions.length === 1 ? 'question' : 'questions'} · {quiz.totalPoints}{' '}
+            {quiz.totalPoints === 1 ? 'point' : 'points'}
+          </p>
+          <Link to={`${coursePath}/quizzes/${quiz.id}/results`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+            <BarChart3 aria-hidden="true" />
+            Results
+          </Link>
+        </div>
       </div>
 
       <PublishBar data={data} courseId={courseId} coursePath={coursePath} />

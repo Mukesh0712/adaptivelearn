@@ -28,4 +28,6 @@ export const LessonEditorPage = lazy(() => import('@/features/content/LessonEdit
 export const QuizEditorPage = lazy(() => import('@/features/quizzes/QuizEditorPage'))
 export const QuizOverviewPage = lazy(() => import('@/features/quizzes/QuizOverviewPage'))
 export const AttemptPage = lazy(() => import('@/features/quizzes/AttemptPage'))
+export const QuizResultsPage = lazy(() => import('@/features/quizzes/QuizResultsPage'))
+export const InstructorAttemptPage = lazy(() => import('@/features/quizzes/InstructorAttemptPage'))
 export const ApprovalsPage = lazy(() => import('@/features/approvals/ApprovalsPage'))

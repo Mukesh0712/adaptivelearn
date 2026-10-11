@@ -1,12 +1,14 @@
 import { baseApi } from '@/services/baseApi'
 import type {
   Attempt,
+  AttemptReviewData,
   Question,
   QuestionInput,
   Quiz,
   QuizEditorData,
   QuizKind,
   QuizOverview,
+  QuizResults,
   QuizSettings,
   QuizSummary,
   StudentAnswer,
@@ -83,6 +85,15 @@ export const quizApi = baseApi.injectEndpoints({
         }
       },
     }),
+    // Instructor/admin: gradebook + item analysis, and one attempt in full.
+    quizResults: build.query<QuizResults, QuizArg>({
+      query: ({ courseId, quizId }) => `/courses/${courseId}/quizzes/${quizId}/results`,
+      providesTags: ['Quizzes'],
+    }),
+    reviewAttempt: build.query<AttemptReviewData, { courseId: string; attemptId: string }>({
+      query: ({ courseId, attemptId }) => `/courses/${courseId}/quiz-attempts/${attemptId}`,
+      providesTags: ['Quizzes'],
+    }),
     // ---- Student side ----
     quizOverview: build.query<QuizOverview, QuizArg>({
       query: ({ courseId, quizId }) => `/courses/${courseId}/quizzes/${quizId}/me`,
@@ -125,6 +136,8 @@ export const {
   useDeleteQuestionMutation,
   useReorderQuestionsMutation,
   useQuizOverviewQuery,
+  useQuizResultsQuery,
+  useReviewAttemptQuery,
   useStartAttemptMutation,
   useAttemptQuery,
   useSaveAnswerMutation,

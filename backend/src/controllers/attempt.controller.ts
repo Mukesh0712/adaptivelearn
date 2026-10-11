@@ -7,7 +7,10 @@ import { ApiError } from '../utils/ApiError.js';
 import { gradeQuestion } from '../utils/quizGrading.js';
 import { answersVisible, revealHint } from '../utils/quizReveal.js';
 import { attemptParamsSchema, type AnswerInput } from '../validators/quiz.schema.js';
-import { courseAccess, type Access } from './content.controller.js';
+import { EnrollmentModel } from '../models/Enrollment.js';
+import { UserModel } from '../models/User.js';
+import { analyseItems, type AnalysedAttempt } from '../utils/itemAnalysis.js';
+import { courseAccess, editAccess, type Access } from './content.controller.js';
 
 // Saves and submits arriving up to this long after the deadline still
 // count (the request may have been sent just in time on a slow network).
@@ -106,8 +109,9 @@ function takingView(attempt: QuizAttemptDocument) {
 
 // After submitting: the score always; correct answers and explanations
 // only when the quiz's reveal rule allows it.
-function resultView(attempt: QuizAttemptDocument, quiz: QuizDocument | null, attemptsUsed: number) {
-  const revealed = quiz ? answersVisible(quiz, attemptsUsed) : false;
+// forInstructor: the course's instructor/admin always sees everything.
+function resultView(attempt: QuizAttemptDocument, quiz: QuizDocument | null, attemptsUsed: number, forInstructor = false) {
+  const revealed = forInstructor || (quiz ? answersVisible(quiz, attemptsUsed) : false);
   return {
     id: attempt.id,
     number: attempt.number,
@@ -356,4 +360,115 @@ export async function studentQuizSummaries(courseId: Types.ObjectId, studentId: 
       bestPercent: done.length ? Math.max(...done.map((a) => a.percent)) : null,
     };
   });
+}
+
+// ---------------------------------------------------------------------------
+// Instructor / admin: results of one quiz.
+
+type Person = { _id: Types.ObjectId; name: string; email: string };
+
+// GET /api/courses/:courseId/quizzes/:quizId/results : the gradebook (every
+// enrolled student, including those who haven't started) and the item
+// analysis of each question.
+export async function quizResults(req: Request, res: Response) {
+  const access = await editAccess(req);
+  const { quizId } = params(req);
+  const quiz = quizId ? await QuizModel.findOne({ _id: quizId, course: access.course._id }) : null;
+  if (!quiz) throw ApiError.notFound('Quiz not found');
+
+  const [raw, enrollments] = await Promise.all([
+    QuizAttemptModel.find({ quiz: quiz._id }).sort({ number: 1 }),
+    EnrollmentModel.find({ course: access.course._id }).populate<{ student: Person | null }>('student', 'name email'),
+  ]);
+  // Attempts whose time ran out are finished first, so the numbers are final.
+  const attempts = await Promise.all(raw.map((a) => finishIfExpired(a) as Promise<QuizAttemptDocument>));
+
+  // Everyone enrolled, plus anyone who took it and has since left the course.
+  const people = new Map<string, { person: Person; enrolled: boolean }>();
+  for (const e of enrollments) if (e.student) people.set(String(e.student._id), { person: e.student, enrolled: true });
+  const missing = [...new Set(attempts.map((a) => String(a.student)))].filter((id) => !people.has(id));
+  if (missing.length) {
+    const left = await UserModel.find({ _id: { $in: missing } }).select('name email');
+    for (const u of left) people.set(u.id, { person: u as unknown as Person, enrolled: false });
+  }
+
+  const students = [...people.entries()].map(([id, { person, enrolled }]) => {
+    const mine = attempts.filter((a) => String(a.student) === id);
+    const done = mine.filter((a) => a.status === 'submitted');
+    const best = done.length ? Math.max(...done.map((a) => a.percent)) : null;
+    const latest = done.at(-1);
+    return {
+      id,
+      name: person.name,
+      email: person.email,
+      enrolled,
+      attempts: done.length,
+      inProgress: mine.some((a) => a.status === 'in_progress'),
+      bestPercent: best,
+      passed: best === null ? null : best >= quiz.passPercent,
+      lastSubmittedAt: latest?.submittedAt ?? null,
+      latestAttemptId: latest?.id ?? null,
+      attemptIds: done.map((a) => ({ id: a.id, number: a.number, percent: a.percent })),
+    };
+  });
+  students.sort((a, b) => a.name.localeCompare(b.name));
+
+  const attempted = students.filter((s) => s.bestPercent !== null);
+  const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : null);
+  // Item analysis: each student's first submitted attempt.
+  const firsts = [...people.keys()]
+    .map((id) => attempts.find((a) => String(a.student) === id && a.status === 'submitted'))
+    .filter((a): a is QuizAttemptDocument => !!a);
+
+  res.json({
+    quiz: { id: quiz.id, title: quiz.title, kind: quiz.kind, passPercent: quiz.passPercent, status: quiz.status },
+    course: { id: access.course.id, title: access.course.title },
+    stats: {
+      enrolled: enrollments.filter((e) => e.student).length,
+      attempted: attempted.length,
+      submittedAttempts: attempts.filter((a) => a.status === 'submitted').length,
+      inProgress: attempts.filter((a) => a.status === 'in_progress').length,
+      averageBest: avg(attempted.map((s) => s.bestPercent!)),
+      averageFirst: avg(firsts.map((a) => a.percent)),
+      passRate: attempted.length ? Math.round((attempted.filter((s) => s.passed).length / attempted.length) * 100) : null,
+    },
+    students,
+    items: analyseItems(firsts.map((a) => a.toObject() as unknown as AnalysedAttempt)),
+    itemBase: firsts.length,
+  });
+}
+
+// GET /api/courses/:courseId/quiz-attempts/:attemptId : one student's
+// attempt, with every answer shown (instructor/admin of the course).
+export async function reviewAttempt(req: Request, res: Response) {
+  const access = await editAccess(req);
+  const { attemptId } = params(req);
+  const found = attemptId ? await QuizAttemptModel.findOne({ _id: attemptId, course: access.course._id }) : null;
+  if (!found) throw ApiError.notFound('Attempt not found');
+  const attempt = (await finishIfExpired(found))!;
+  const [quiz, student] = await Promise.all([
+    QuizModel.findById(attempt.quiz).select('title kind reveal dueAt maxAttempts'),
+    UserModel.findById(attempt.student).select('name email'),
+  ]);
+  const info = {
+    quiz: { id: String(attempt.quiz), title: quiz?.title ?? 'Quiz' },
+    student: { id: String(attempt.student), name: student?.name ?? 'Former student', email: student?.email ?? '' },
+  };
+  if (attempt.status === 'in_progress') {
+    res.json({
+      ...info,
+      attempt: {
+        id: attempt.id,
+        number: attempt.number,
+        status: attempt.status,
+        startedAt: attempt.startedAt,
+        deadline: attempt.deadline,
+        answered: attempt.questions.filter((q) => q.selected.length || q.answerBool !== null || q.answerText?.trim()).length,
+        total: attempt.questions.length,
+        questions: [],
+      },
+    });
+    return;
+  }
+  res.json({ ...info, attempt: resultView(attempt, quiz, 0, true) });
 }

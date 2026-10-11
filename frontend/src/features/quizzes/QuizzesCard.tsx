@@ -83,6 +83,15 @@ export function QuizzesCard({ courseId, basePath }: { courseId: string; basePath
                     {q.dueAt ? ` · due ${formatDateTime(q.dueAt)}` : ''}
                   </p>
                 </div>
+                {!!q.studentsTaken && (
+                  <Link
+                    to={`${basePath}/courses/${courseId}/quizzes/${q.id}/results`}
+                    className="text-sm text-primary underline-offset-4 hover:underline"
+                  >
+                    {q.studentsTaken} {q.studentsTaken === 1 ? 'student' : 'students'} took it
+                    <span className="sr-only">: results of {q.title}</span>
+                  </Link>
+                )}
                 <Badge variant="secondary">{q.kind === 'graded' ? 'Graded' : 'Practice'}</Badge>
                 <LessonStatusBadge status={q.status} />
               </li>
