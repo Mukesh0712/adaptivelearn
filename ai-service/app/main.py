@@ -4,12 +4,17 @@ Run locally (inside the virtual environment, from the ai-service folder):
     uvicorn app.main:app --reload --port 8000
 """
 
-from fastapi import APIRouter, Depends, FastAPI
+import logging
+
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
 
 from app.config import load_settings
 from app.providers import get_provider
+from app.providers.base import AIProvider
 from app.security import require_internal_key
+from app.tasks.feedback import MAX_TOKENS, SYSTEM, FeedbackRequest, FeedbackResponse, build_prompt, clean_output
 
+log = logging.getLogger("ai-service")
 settings = load_settings()
 
 app = FastAPI(
@@ -40,6 +45,26 @@ v1 = APIRouter(prefix="/v1", dependencies=[Depends(require_internal_key)])
 def ai_status() -> dict[str, str]:
     provider = app.state.provider
     return {"provider": provider.name, "model": provider.model}
+
+
+@v1.post("/feedback")
+async def feedback(req: FeedbackRequest) -> FeedbackResponse:
+    provider = app.state.provider
+    text = await ask(provider, system=SYSTEM, prompt=build_prompt(req), max_tokens=MAX_TOKENS)
+    return FeedbackResponse(feedback=clean_output(text), model=provider.model)
+
+
+async def ask(provider: AIProvider, *, system: str, prompt: str, max_tokens: int) -> str:
+    """One model call. Provider failures become a plain 502 for the backend;
+    the details are logged here and never sent back."""
+    try:
+        text = await provider.complete(system=system, prompt=prompt, max_tokens=max_tokens)
+    except Exception:
+        log.exception("AI provider %s failed", provider.name)
+        raise HTTPException(status_code=502, detail="The AI provider failed") from None
+    if not text.strip():
+        raise HTTPException(status_code=502, detail="The AI provider gave an empty answer")
+    return text
 
 
 app.include_router(v1)

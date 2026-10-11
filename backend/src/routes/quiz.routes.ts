@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/authenticate.js';
-import { quizSaveLimiter } from '../middleware/rateLimiters.js';
+import { aiLimiter, quizSaveLimiter } from '../middleware/rateLimiters.js';
 import { validate } from '../middleware/validate.js';
 import {
   addQuestion,
@@ -22,6 +22,7 @@ import {
   startAttempt,
   submitAttempt,
 } from '../controllers/attempt.controller.js';
+import { explainAnswer } from '../controllers/aiFeedback.controller.js';
 import { orderSchema } from '../validators/content.schema.js';
 import { answerSchema, newQuizSchema, questionSchema, updateQuizSchema } from '../validators/quiz.schema.js';
 
@@ -48,6 +49,8 @@ quizRouter.post('/quizzes/:quizId/attempts', authenticate, startAttempt);
 quizRouter.get('/attempts/:attemptId', authenticate, getAttempt);
 quizRouter.put('/attempts/:attemptId/answers/:questionId', authenticate, quizSaveLimiter, validate(answerSchema), saveAnswer);
 quizRouter.post('/attempts/:attemptId/submit', authenticate, submitAttempt);
+// AI explanation of a wrong answer, after submitting.
+quizRouter.post('/attempts/:attemptId/questions/:questionId/explain', authenticate, aiLimiter, explainAnswer);
 
 // Results (instructor/admin of the course).
 quizRouter.get('/quiz-attempts/:attemptId', authenticate, reviewAttempt);

@@ -1,4 +1,4 @@
-import type { z } from 'zod';
+import { z } from 'zod';
 import { env } from '../config/env.js';
 
 // The only place the backend talks to the Python AI service.
@@ -96,4 +96,18 @@ export async function wakeAiService(timeoutMs = 60000): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// The model currently behind the AI service (e.g. "mock-1"). Part of every
+// cache key, so switching models never serves answers from the old one.
+// Asked once and remembered for 10 minutes. The first call also wakes a
+// sleeping service, so it gets a longer time limit.
+export const statusSchema = z.object({ provider: z.string(), model: z.string() });
+let known: { model: string; until: number } | null = null;
+
+export async function currentModel(): Promise<string> {
+  if (known && known.until > Date.now()) return known.model;
+  const { model } = await aiRequest('/v1/status', statusSchema, { timeoutMs: 60000 });
+  known = { model, until: Date.now() + 10 * 60 * 1000 };
+  return model;
 }

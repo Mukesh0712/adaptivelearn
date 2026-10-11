@@ -92,3 +92,14 @@ export const changePasswordLimiter = limiter(
   true,
   (req) => `user:${req.user!.id}`,
 );
+
+// AI requests, per ACCOUNT: a burst limit on top of the daily limit, so a
+// script can't fire hundreds of requests in a few seconds. 20 a minute is
+// room for a student clicking "Explain" on every wrong answer of a long quiz.
+export const aiLimiter = limiter(
+  1,
+  20,
+  'Too many AI requests at once. Wait a minute, then try again.',
+  false,
+  (req) => `user:${req.user!.id}`,
+);

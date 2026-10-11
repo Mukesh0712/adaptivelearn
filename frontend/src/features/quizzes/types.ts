@@ -190,6 +190,8 @@ export interface Attempt {
   passPercent?: number
   revealed?: boolean
   revealHint?: string
+  // The student may ask the AI to explain their wrong answers.
+  aiExplain?: boolean
   questions: AttemptQuestion[]
 }
 

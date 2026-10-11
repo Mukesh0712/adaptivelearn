@@ -122,6 +122,16 @@ export const quizApi = baseApi.injectEndpoints({
       query: ({ courseId, attemptId }) => ({ url: `/courses/${courseId}/attempts/${attemptId}/submit`, method: 'POST' }),
       invalidatesTags: ['Quizzes', 'Content'],
     }),
+    // AI explanation of one wrong answer. `left`: AI requests left today.
+    explainAnswer: build.mutation<
+      { feedback: string; left: number },
+      { courseId: string; attemptId: string; questionId: string }
+    >({
+      query: ({ courseId, attemptId, questionId }) => ({
+        url: `/courses/${courseId}/attempts/${attemptId}/questions/${questionId}/explain`,
+        method: 'POST',
+      }),
+    }),
   }),
 })
 
@@ -142,4 +152,5 @@ export const {
   useAttemptQuery,
   useSaveAnswerMutation,
   useSubmitAttemptMutation,
+  useExplainAnswerMutation,
 } = quizApi

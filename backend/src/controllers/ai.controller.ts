@@ -1,9 +1,6 @@
 import type { Request, Response } from 'express';
-import { z } from 'zod';
 import { env } from '../config/env.js';
-import { AiError, aiEnabled, aiRequest, wakeAiService } from '../utils/aiClient.js';
-
-const statusSchema = z.object({ provider: z.string(), model: z.string() });
+import { AiError, aiEnabled, aiRequest, statusSchema, wakeAiService } from '../utils/aiClient.js';
 
 // GET /api/admin/ai/status : is the AI service set up and answering?
 // Shown on the admin dashboard. Always answers 200 with what it found, so
