@@ -14,7 +14,7 @@ import { finishedLessons } from '../utils/progress.js';
 import { ApiError } from '../utils/ApiError.js';
 import { checkFile, cleanFileName, MAX_FILE_BYTES } from '../utils/fileTypes.js';
 import { deleteStoredFiles, fetchStoredFile, storageEnabled, StorageError, storeFile } from '../utils/fileStorage.js';
-import { parseVideoUrl } from '../utils/videoUrl.js';
+import { parseVideoUrl, recordingPlatform } from '../utils/videoUrl.js';
 import {
   contentParamsSchema,
   type ModuleInput,
@@ -281,13 +281,16 @@ export async function addResource(req: Request, res: Response) {
   if (lesson.resources.length >= MAX_RESOURCES) {
     throw ApiError.conflict(`A lesson can have at most ${MAX_RESOURCES} videos, links and files.`);
   }
-  const { kind, url, title } = req.body as NewResourceInput;
+  const input = req.body as NewResourceInput;
+  const { kind, url, title } = input;
   // The validator already checked the video link, so this always succeeds.
   const video = kind === 'video' ? parseVideoUrl(url) : null;
-  lesson.resources.push({ kind, url, title, ...video });
+  const passcode = input.kind === 'link' && input.passcode ? input.passcode : undefined;
+  lesson.resources.push({ kind, url, title, ...video, ...(passcode ? { passcode } : {}) });
   await lesson.save();
   const added = lesson.toJSON().resources.at(-1);
-  res.status(201).json({ resource: added, message: kind === 'video' ? 'Video added' : 'Link added' });
+  const message = kind === 'video' ? 'Video added' : recordingPlatform(url) ? 'Recording link added' : 'Link added';
+  res.status(201).json({ resource: added, message });
 }
 
 // DELETE /api/courses/:courseId/lessons/:lessonId/resources/:resourceId

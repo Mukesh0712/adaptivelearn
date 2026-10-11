@@ -35,7 +35,7 @@ import {
 import { MoveButtons } from './MoveButtons'
 import { fileTypeLabel, formatBytes, moved, resourceTitle, shortUrl } from './utils'
 import { FILE_EXTENSIONS, MAX_FILE_BYTES, MAX_RESOURCES, type Lesson, type Resource } from './types'
-import { parseVideoUrl } from './videoUrl'
+import { parseVideoUrl, PLATFORM_LABEL, PROVIDER_LABEL, recordingPlatform } from './videoUrl'
 
 type AddKind = 'video' | 'link'
 const ICON = { video: Video, link: Link2, file: FileText }
@@ -111,13 +111,14 @@ export function ResourcesEditor({ lesson, courseId }: { lesson: Lesson; courseId
       {resources.length > 0 && (
         <ol className="divide-y rounded-lg border" aria-label="Videos, links and files">
           {resources.map((r, i) => {
-            const Icon = ICON[r.kind]
+            const recording = r.kind === 'link' && recordingPlatform(r.url) !== null
+            const Icon = recording ? Video : ICON[r.kind]
             return (
               <li key={r.id} className="flex items-center gap-3 px-3 py-2">
                 <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium break-words">
-                    <span className="sr-only">{KIND_LABEL[r.kind]}</span>
+                    <span className="sr-only">{recording ? 'Recording: ' : KIND_LABEL[r.kind]}</span>
                     {resourceTitle(r)}
                   </p>
                   {r.kind === 'file' ? (
@@ -135,6 +136,7 @@ export function ResourcesEditor({ lesson, courseId }: { lesson: Lesson; courseId
                     <span className="sr-only"> (opens in a new tab)</span>
                   </a>
                   )}
+                  {r.passcode && <p className="text-xs text-muted-foreground">Passcode: {r.passcode}</p>}
                 </div>
                 {r.kind === 'file' && (
                   <Button variant="ghost" size="icon-sm" aria-label={`Download ${resourceTitle(r)}`} onClick={() => doDownload(r)}>
@@ -231,7 +233,7 @@ export function ResourcesEditor({ lesson, courseId }: { lesson: Lesson; courseId
 }
 
 function AddResourceForm({
-  kind,
+  kind: initialKind,
   lesson,
   courseId,
   onDone,
@@ -241,39 +243,59 @@ function AddResourceForm({
   courseId: string
   onDone: () => void
 }) {
+  // Can switch from "video" to "link" when a Zoom/Teams recording is pasted.
+  const [kind, setKind] = useState<AddKind>(initialKind)
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
-  const [errors, setErrors] = useState<{ url?: string; title?: string }>({})
+  const [passcode, setPasscode] = useState('')
+  const [errors, setErrors] = useState<{ url?: string; title?: string; passcode?: string }>({})
   const [addResource, { isLoading }] = useAddResourceMutation()
   const video = kind === 'video' ? parseVideoUrl(url) : null
+  const platform = recordingPlatform(url)
+  // A recording pasted as a video: explain, and offer to add it as a link.
+  const recordingAsVideo = kind === 'video' && !video && platform !== null
+  const isRecordingLink = kind === 'link' && platform !== null
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     const u = url.trim()
     if (!u) return setErrors({ url: 'Paste a link' })
-    if (kind === 'video' && !video) return setErrors({ url: 'Paste a YouTube or Vimeo video link' })
-    if (kind === 'link' && !/^https?:\/\/[^/\s]+\.[^/\s]+/i.test(u)) {
+    // The submit button says "Add as recording link" in that case: do just that.
+    const sendKind: AddKind = recordingAsVideo ? 'link' : kind
+    if (sendKind === 'video' && !video) return setErrors({ url: 'Paste a YouTube, Vimeo or Google Drive video link' })
+    if (sendKind === 'link' && !/^https?:\/\/[^/\s]+\.[^/\s]+/i.test(u)) {
       return setErrors({ url: 'Enter a full web address, starting with https://' })
     }
     try {
-      const res = await addResource({ courseId, lessonId: lesson.id, kind, url: u, title: title.trim() }).unwrap()
+      const res = await addResource({
+        courseId,
+        lessonId: lesson.id,
+        kind: sendKind,
+        url: u,
+        title: title.trim(),
+        ...(platform === 'zoom' && passcode.trim() ? { passcode: passcode.trim() } : {}),
+      }).unwrap()
       toast.success(res.message)
       onDone()
     } catch (err) {
       const { message, fields } = parseApiError(err)
-      if (fields.url || fields.title) setErrors({ url: fields.url, title: fields.title })
-      else toast.error(message)
+      if (fields.url || fields.title || fields.passcode) {
+        setErrors({ url: fields.url, title: fields.title, passcode: fields.passcode })
+      } else toast.error(message)
     }
   }
 
+  const heading = kind === 'video' ? 'Add video' : isRecordingLink ? 'Add class recording' : 'Add link'
   return (
     <form onSubmit={handleSubmit} className="grid gap-4" noValidate>
       <DialogHeader>
-        <DialogTitle>{kind === 'video' ? 'Add video' : 'Add link'}</DialogTitle>
+        <DialogTitle>{heading}</DialogTitle>
         <DialogDescription>
           {kind === 'video'
-            ? 'Paste a YouTube or Vimeo link. Students watch it inside the lesson.'
-            : 'A website, article or document that helps with this lesson. It opens in a new tab.'}
+            ? 'Paste a YouTube, Vimeo or Google Drive link. Students watch it inside the lesson.'
+            : isRecordingLink
+              ? `Students get a "Class recording" card that opens it in ${PLATFORM_LABEL[platform]}.`
+              : 'A website, article, document or Zoom/Teams recording. It opens in a new tab.'}
         </DialogDescription>
       </DialogHeader>
       <div className="grid gap-2">
@@ -287,7 +309,9 @@ function AddResourceForm({
           maxLength={2000}
           placeholder={kind === 'video' ? 'https://www.youtube.com/watch?v=…' : 'https://'}
           aria-invalid={!!errors.url}
-          aria-describedby={errors.url ? 'resource-url-error' : video ? 'resource-url-ok' : undefined}
+          aria-describedby={
+            errors.url ? 'resource-url-error' : video || recordingAsVideo ? 'resource-url-ok' : 'resource-url-tip'
+          }
           onChange={(e) => {
             setUrl(e.target.value)
             setErrors({})
@@ -297,11 +321,53 @@ function AddResourceForm({
         {video && !errors.url && (
           <p id="resource-url-ok" className="flex items-center gap-1.5 text-sm text-emerald-700 dark:text-emerald-300">
             <CheckCircle2 className="size-4" aria-hidden="true" />
-            {video.provider === 'youtube' ? 'YouTube' : 'Vimeo'} video recognised
+            {PROVIDER_LABEL[video.provider]} video recognised
             {video.start ? `, starts at ${Math.floor(video.start / 60)}:${String(video.start % 60).padStart(2, '0')}` : ''}
           </p>
         )}
+        {recordingAsVideo && (
+          <div id="resource-url-ok" role="status" className="grid gap-2 rounded-lg border bg-muted/50 p-3 text-sm">
+            <p>
+              <strong>{PLATFORM_LABEL[platform]} recording.</strong> {PLATFORM_LABEL[platform]} doesn't allow its
+              recordings to play inside other websites, so students will open it in {PLATFORM_LABEL[platform]}{' '}
+              instead.
+            </p>
+            <Button type="button" size="sm" variant="secondary" className="w-fit" onClick={() => setKind('link')}>
+              Add as recording link
+            </Button>
+          </div>
+        )}
+        {kind === 'video' && !video && !recordingAsVideo && (
+          <p id="resource-url-tip" className="text-xs text-muted-foreground">
+            Google Meet recordings are saved in Google Drive: share the file as &quot;Anyone with the link&quot; (or
+            with your students), then paste its link here.
+          </p>
+        )}
       </div>
+      {isRecordingLink && platform === 'zoom' && (
+        <div className="grid gap-2">
+          <Label htmlFor="resource-passcode">
+            Passcode <span className="font-normal text-muted-foreground">(optional)</span>
+          </Label>
+          <Input
+            id="resource-passcode"
+            value={passcode}
+            maxLength={50}
+            autoComplete="off"
+            placeholder="If the recording has one"
+            aria-invalid={!!errors.passcode}
+            aria-describedby={errors.passcode ? 'resource-passcode-error' : 'resource-passcode-help'}
+            onChange={(e) => {
+              setPasscode(e.target.value)
+              setErrors({})
+            }}
+          />
+          <FieldError id="resource-passcode-error" message={errors.passcode} />
+          <p id="resource-passcode-help" className="text-xs text-muted-foreground">
+            Shown to students of this course next to the recording, with a copy button.
+          </p>
+        </div>
+      )}
       <div className="grid gap-2">
         <Label htmlFor="resource-title">
           Title <span className="font-normal text-muted-foreground">(optional)</span>
@@ -310,7 +376,13 @@ function AddResourceForm({
           id="resource-title"
           value={title}
           maxLength={150}
-          placeholder={kind === 'video' ? 'e.g. Arrays explained in 10 minutes' : 'e.g. Official documentation'}
+          placeholder={
+            kind === 'video'
+              ? 'e.g. Arrays explained in 10 minutes'
+              : isRecordingLink
+                ? 'e.g. Lecture 3 recording (12 Oct)'
+                : 'e.g. Official documentation'
+          }
           aria-invalid={!!errors.title}
           aria-describedby={errors.title ? 'resource-title-error' : undefined}
           onChange={(e) => {
@@ -324,7 +396,7 @@ function AddResourceForm({
         <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
         <SubmitButton loading={isLoading} loadingText="Adding…" className="sm:w-auto">
           <Plus aria-hidden="true" />
-          {kind === 'video' ? 'Add video' : 'Add link'}
+          {recordingAsVideo ? 'Add as recording link' : kind === 'video' ? 'Add video' : isRecordingLink ? 'Add recording' : 'Add link'}
         </SubmitButton>
       </DialogFooter>
     </form>
