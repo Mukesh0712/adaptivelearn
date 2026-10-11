@@ -14,10 +14,18 @@ export interface OutlineLesson {
   done?: boolean // students only: they finished it
 }
 
+export interface OutlineQuiz {
+  id: string
+  title: string
+  status: LessonStatus
+  kind: 'practice' | 'graded'
+}
+
 export interface OutlineModule {
   id: string
   title: string
   lessons: OutlineLesson[]
+  quizzes?: OutlineQuiz[] // the module's quizzes (editors; students from Phase 6 step 2)
 }
 
 // GET /courses/:courseId/content : the course outline. Students get only

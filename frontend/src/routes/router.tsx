@@ -22,6 +22,7 @@ import {
   ParentDashboard,
   PrivacyPage,
   ProfilePage,
+  QuizEditorPage,
   RegisterPage,
   ResetPasswordPage,
   StudentCoursePage,
@@ -85,6 +86,7 @@ export const router = createBrowserRouter([
                   { path: 'courses', element: <InstructorCoursesPage /> },
                   { path: 'courses/:courseId', element: <InstructorCourseDetailPage /> },
                   { path: 'courses/:courseId/lessons/:lessonId', element: <LessonEditorPage /> },
+                  { path: 'courses/:courseId/quizzes/:quizId', element: <QuizEditorPage /> },
                   { path: 'requests', element: <ApprovalsPage /> },
                 ],
               },
@@ -108,6 +110,7 @@ export const router = createBrowserRouter([
                   // Same page as the instructor's; the admin sees extra controls.
                   { path: 'courses/:courseId', element: <InstructorCourseDetailPage /> },
                   { path: 'courses/:courseId/lessons/:lessonId', element: <LessonEditorPage /> },
+                  { path: 'courses/:courseId/quizzes/:quizId', element: <QuizEditorPage /> },
                   { path: 'activity', element: <AdminActivityPage /> },
                 ],
               },

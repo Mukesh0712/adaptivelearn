@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { FileText, Layers, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ClipboardList, FileText, Layers, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { SubmitButton } from '@/components/SubmitButton'
 import {
@@ -59,6 +59,7 @@ export function ContentCard({ courseId, basePath }: { courseId: string; basePath
   const [reorderLessons] = useReorderLessonsMutation()
 
   const modules = data?.modules ?? []
+  const deletingBlocked = !!deleting && (deleting.lessons.length > 0 || !!deleting.quizzes?.length)
   const lessonCount = modules.reduce((n, m) => n + m.lessons.length, 0)
   const publishedCount = modules.reduce((n, m) => n + m.lessons.filter((l) => l.status === 'published').length, 0)
   const lessonPath = (lessonId: string) => `${basePath}/courses/${courseId}/lessons/${lessonId}`
@@ -198,6 +199,24 @@ export function ContentCard({ courseId, basePath }: { courseId: string; basePath
                     ))}
                   </ol>
                 )}
+                {/* The module's quizzes, after its lessons (managed on the quiz page). */}
+                {!!mod.quizzes?.length && (
+                  <ul className="divide-y border-t" aria-label={`Quizzes in ${mod.title}`}>
+                    {mod.quizzes.map((quiz) => (
+                      <li key={quiz.id} className="flex items-center gap-2 px-3 py-2">
+                        <ClipboardList className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        <Link
+                          to={`${basePath}/courses/${courseId}/quizzes/${quiz.id}`}
+                          className="min-w-0 flex-1 text-sm break-words hover:underline"
+                        >
+                          <span className="sr-only">Quiz: </span>
+                          {quiz.title}
+                        </Link>
+                        <LessonStatusBadge status={quiz.status} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <div className="px-3 py-2">
                   <Button
                     variant="ghost"
@@ -260,14 +279,19 @@ export function ContentCard({ courseId, basePath }: { courseId: string; basePath
           <AlertDialogHeader>
             <AlertDialogTitle>Delete module {deleting?.title}?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleting?.lessons.length
-                ? `It still has ${deleting.lessons.length} ${deleting.lessons.length === 1 ? 'lesson' : 'lessons'}. Delete or move ${deleting.lessons.length === 1 ? 'it' : 'them'} first, so no lesson is lost by accident.`
+              {deletingBlocked
+                ? `It still has ${[
+                    deleting!.lessons.length ? `${deleting!.lessons.length} ${deleting!.lessons.length === 1 ? 'lesson' : 'lessons'}` : '',
+                    deleting!.quizzes?.length ? `${deleting!.quizzes.length} ${deleting!.quizzes.length === 1 ? 'quiz' : 'quizzes'}` : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' and ')}. Delete or move them first, so nothing is lost by accident.`
                 : 'The module is empty. This cannot be undone.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{deleting?.lessons.length ? 'OK' : 'Cancel'}</AlertDialogCancel>
-            {!deleting?.lessons.length && (
+            <AlertDialogCancel>{deletingBlocked ? 'OK' : 'Cancel'}</AlertDialogCancel>
+            {!deletingBlocked && (
               <SubmitButton
                 type="button"
                 variant="destructive"

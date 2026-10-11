@@ -34,6 +34,7 @@ import { FieldError } from '@/features/auth/pages/AuthCard'
 import { CourseFormDialog } from '@/features/courses/CourseFormDialog'
 import { DeleteCourseDialog } from '@/features/courses/DeleteCourseDialog'
 import { ContentCard } from '@/features/content/ContentCard'
+import { QuizzesCard } from '@/features/quizzes/QuizzesCard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { StatusBadge } from '@/features/admin/UserBadges'
@@ -136,6 +137,8 @@ export default function CourseDetailPage() {
       )}
 
       <ContentCard courseId={course.id} basePath={isAdmin ? '/admin' : '/instructor'} />
+
+      <QuizzesCard courseId={course.id} basePath={isAdmin ? '/admin' : '/instructor'} />
 
       <StudentsCard course={course} />
 
