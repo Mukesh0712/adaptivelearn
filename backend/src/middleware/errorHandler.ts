@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { ApiError } from '../utils/ApiError.js';
+import { AiError } from '../utils/aiClient.js';
 import { isProduction } from '../config/env.js';
 
 export const notFound: RequestHandler = (req) => {
@@ -12,6 +13,14 @@ export const notFound: RequestHandler = (req) => {
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof ApiError) {
     res.status(err.statusCode).json({ message: err.message, details: err.details });
+    return;
+  }
+
+  // The AI service couldn't answer. The user gets a plain message; the
+  // technical detail goes to the server log only.
+  if (err instanceof AiError) {
+    if (err.kind !== 'disabled') console.warn(`AI request failed (${err.kind})${err.detail ? `: ${err.detail}` : ''}`);
+    res.status(503).json({ message: err.message });
     return;
   }
 

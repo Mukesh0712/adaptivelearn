@@ -7,3 +7,6 @@ venv/
 dist/
 *.log
 server-log.txt
+__pycache__/
+.pytest_cache/
+.venv/
