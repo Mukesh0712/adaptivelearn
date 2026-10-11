@@ -5,6 +5,7 @@ import { UserModel, type User, type UserDocument } from '../models/User.js';
 import { AUDIT_CATEGORIES, AuditLogModel, type AuditLog } from '../models/AuditLog.js';
 import { CourseModel } from '../models/Course.js';
 import { JoinRequestModel } from '../models/JoinRequest.js';
+import { QuizAttemptModel } from '../models/QuizAttempt.js';
 import { LessonProgressModel } from '../models/LessonProgress.js';
 import { EnrollmentModel } from '../models/Enrollment.js';
 import { parseOrThrow } from '../middleware/validate.js';
@@ -371,6 +372,7 @@ export async function eraseUser(req: Request, res: Response) {
     EnrollmentModel.deleteMany({ student: user._id }),
     LessonProgressModel.deleteMany({ student: user._id }),
     JoinRequestModel.deleteMany({ student: user._id }),
+    QuizAttemptModel.deleteMany({ student: user._id }),
     // Scrub their name/email from earlier Activity entries too.
     AuditLogModel.updateMany(
       { $or: [{ target: user._id }, { 'details.email': originalEmail }] },

@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { ModuleModel } from '../models/Module.js';
 import { MAX_QUESTIONS, QuizModel, questionToJSON, type QuizDocument } from '../models/Quiz.js';
+import { QuizAttemptModel } from '../models/QuizAttempt.js';
 import { ApiError } from '../utils/ApiError.js';
 import {
   quizParamsSchema,
@@ -139,6 +140,14 @@ export async function updateQuiz(req: Request, res: Response) {
 export async function deleteQuiz(req: Request, res: Response) {
   const access = await editAccess(req);
   const quiz = await quizIn(req, access);
+  // Students' results must not disappear: a quiz someone has taken can only
+  // be moved back to draft.
+  const attempts = await QuizAttemptModel.countDocuments({ quiz: quiz._id });
+  if (attempts > 0) {
+    throw ApiError.conflict(
+      `${attempts} ${attempts === 1 ? 'attempt exists' : 'attempts exist'} for this quiz, so it can't be deleted. Move it to draft to hide it.`,
+    );
+  }
   await quiz.deleteOne();
   res.json({ message: `Quiz "${quiz.title}" deleted` });
 }

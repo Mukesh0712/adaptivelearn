@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { parseApiError } from '@/features/auth/apiError'
 import { useCourseContentQuery } from '@/features/content/contentApi'
+import { StudentQuizRow } from '@/features/quizzes/StudentQuizRow'
+import type { StudentQuizItem } from '@/features/quizzes/types'
 
 // Student: one course's outline (published lessons only, in reading order).
 export default function StudentCoursePage() {
@@ -47,6 +49,7 @@ export default function StudentCoursePage() {
   }
 
   const { course, modules, progress } = data
+  const courseTests = data.courseTests ?? []
   const all = modules.flatMap((m) => m.lessons)
   // "Continue" opens the first lesson not done yet (or the first one).
   const nextUp = all.find((l) => !l.done) ?? all[0]
@@ -81,7 +84,7 @@ export default function StudentCoursePage() {
         <ProgressBar done={progress.done} total={progress.total} label={`Your progress in ${course.title}`} className="max-w-md" />
       )}
 
-      {!modules.length ? (
+      {!modules.length && !courseTests.length ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
             <BookOpen className="size-8 text-muted-foreground" aria-hidden="true" />
@@ -123,9 +126,36 @@ export default function StudentCoursePage() {
                     </li>
                   ))}
                 </ol>
+                {!!mod.quizzes?.length && (
+                  <ul aria-label={`Quizzes in ${mod.title}`} className={mod.lessons.length ? 'mt-1 border-t pt-1' : ''}>
+                    {(mod.quizzes as StudentQuizItem[]).map((quiz) => (
+                      <li key={quiz.id}>
+                        <StudentQuizRow quiz={quiz} courseId={course.id} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
           ))}
+          {courseTests.length > 0 && (
+            <Card className="gap-2">
+              <CardHeader>
+                <CardTitle>
+                  <h2>Course tests</h2>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-2">
+                <ul aria-label="Course tests">
+                  {courseTests.map((quiz) => (
+                    <li key={quiz.id}>
+                      <StudentQuizRow quiz={quiz} courseId={course.id} />
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
     </div>

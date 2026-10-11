@@ -12,8 +12,9 @@ import {
   updateQuestion,
   updateQuiz,
 } from '../controllers/quiz.controller.js';
+import { getAttempt, quizOverview, saveAnswer, startAttempt, submitAttempt } from '../controllers/attempt.controller.js';
 import { orderSchema } from '../validators/content.schema.js';
-import { newQuizSchema, questionSchema, updateQuizSchema } from '../validators/quiz.schema.js';
+import { answerSchema, newQuizSchema, questionSchema, updateQuizSchema } from '../validators/quiz.schema.js';
 
 // Quizzes, mounted at /api/courses/:courseId (like course content). Every
 // handler checks that the caller may edit this course (instructor/admin).
@@ -22,6 +23,7 @@ export const quizRouter = Router({ mergeParams: true });
 
 quizRouter.get('/quizzes', authenticate, listQuizzes);
 quizRouter.post('/quizzes', authenticate, validate(newQuizSchema), createQuiz);
+quizRouter.get('/quizzes/:quizId/me', authenticate, quizOverview);
 quizRouter.get('/quizzes/:quizId', authenticate, getQuizForEditing);
 quizRouter.patch('/quizzes/:quizId', authenticate, validate(updateQuizSchema), updateQuiz);
 quizRouter.delete('/quizzes/:quizId', authenticate, deleteQuiz);
@@ -30,3 +32,9 @@ quizRouter.post('/quizzes/:quizId/questions', authenticate, validate(questionSch
 quizRouter.put('/quizzes/:quizId/questions/order', authenticate, validate(orderSchema), reorderQuestions);
 quizRouter.put('/quizzes/:quizId/questions/:questionId', authenticate, validate(questionSchema), updateQuestion);
 quizRouter.delete('/quizzes/:quizId/questions/:questionId', authenticate, deleteQuestion);
+
+// Taking a quiz (students enrolled in the course).
+quizRouter.post('/quizzes/:quizId/attempts', authenticate, startAttempt);
+quizRouter.get('/attempts/:attemptId', authenticate, getAttempt);
+quizRouter.put('/attempts/:attemptId/answers/:questionId', authenticate, validate(answerSchema), saveAnswer);
+quizRouter.post('/attempts/:attemptId/submit', authenticate, submitAttempt);

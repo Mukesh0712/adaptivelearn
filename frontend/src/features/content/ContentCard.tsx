@@ -35,7 +35,7 @@ import { LessonStatusBadge } from './LessonStatusBadge'
 import { MoveButtons } from './MoveButtons'
 import { moved } from './utils'
 import { TitleDialog } from './TitleDialog'
-import { LESSON_TITLE_MAX, MODULE_TITLE_MAX, type OutlineModule } from './types'
+import { LESSON_TITLE_MAX, MODULE_TITLE_MAX, type OutlineModule, type OutlineQuiz } from './types'
 
 type DialogState =
   | { kind: 'addModule' }
@@ -202,7 +202,7 @@ export function ContentCard({ courseId, basePath }: { courseId: string; basePath
                 {/* The module's quizzes, after its lessons (managed on the quiz page). */}
                 {!!mod.quizzes?.length && (
                   <ul className="divide-y border-t" aria-label={`Quizzes in ${mod.title}`}>
-                    {mod.quizzes.map((quiz) => (
+                    {(mod.quizzes as OutlineQuiz[]).map((quiz) => (
                       <li key={quiz.id} className="flex items-center gap-2 px-3 py-2">
                         <ClipboardList className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                         <Link

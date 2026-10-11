@@ -7,6 +7,7 @@ import { JoinRequestModel } from '../models/JoinRequest.js';
 import { LessonProgressModel } from '../models/LessonProgress.js';
 import { ModuleModel } from '../models/Module.js';
 import { QuizModel } from '../models/Quiz.js';
+import { QuizAttemptModel } from '../models/QuizAttempt.js';
 import { deleteStoredFiles } from '../utils/fileStorage.js';
 import { storedIds } from './content.controller.js';
 import { classProgress, studentProgress } from '../utils/progress.js';
@@ -342,6 +343,7 @@ export async function deleteCourse(req: Request, res: Response) {
     LessonProgressModel.deleteMany({ course: course._id }),
     JoinRequestModel.deleteMany({ course: course._id }),
     QuizModel.deleteMany({ course: course._id }),
+    QuizAttemptModel.deleteMany({ course: course._id }),
   ]);
   await deleteStoredFiles(files.flatMap((l) => storedIds(l.resources)));
   await audit(req.user!.id, 'course.deleted', null, { courseId: course.id, title: course.title });

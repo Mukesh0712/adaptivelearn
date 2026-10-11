@@ -1,5 +1,16 @@
 import { baseApi } from '@/services/baseApi'
-import type { Question, QuestionInput, Quiz, QuizEditorData, QuizKind, QuizSettings, QuizSummary } from './types'
+import type {
+  Attempt,
+  Question,
+  QuestionInput,
+  Quiz,
+  QuizEditorData,
+  QuizKind,
+  QuizOverview,
+  QuizSettings,
+  QuizSummary,
+  StudentAnswer,
+} from './types'
 
 type Message = { message: string }
 type QuizArg = { courseId: string; quizId: string }
@@ -72,6 +83,34 @@ export const quizApi = baseApi.injectEndpoints({
         }
       },
     }),
+    // ---- Student side ----
+    quizOverview: build.query<QuizOverview, QuizArg>({
+      query: ({ courseId, quizId }) => `/courses/${courseId}/quizzes/${quizId}/me`,
+      providesTags: ['Quizzes'],
+    }),
+    startAttempt: build.mutation<{ attempt: Attempt } & Message, QuizArg>({
+      query: ({ courseId, quizId }) => ({ url: `/courses/${courseId}/quizzes/${quizId}/attempts`, method: 'POST' }),
+      invalidatesTags: ['Quizzes', 'Content'],
+    }),
+    attempt: build.query<{ attempt: Attempt; quiz: { id: string; title: string } }, { courseId: string; attemptId: string }>({
+      query: ({ courseId, attemptId }) => `/courses/${courseId}/attempts/${attemptId}`,
+      providesTags: ['Quizzes'],
+    }),
+    // Autosave: no tags, so nothing refetches while the student answers.
+    saveAnswer: build.mutation<
+      { saved: true },
+      { courseId: string; attemptId: string; questionId: string; answer: Partial<StudentAnswer> }
+    >({
+      query: ({ courseId, attemptId, questionId, answer }) => ({
+        url: `/courses/${courseId}/attempts/${attemptId}/answers/${questionId}`,
+        method: 'PUT',
+        body: answer,
+      }),
+    }),
+    submitAttempt: build.mutation<{ attempt: Attempt } & Message, { courseId: string; attemptId: string }>({
+      query: ({ courseId, attemptId }) => ({ url: `/courses/${courseId}/attempts/${attemptId}/submit`, method: 'POST' }),
+      invalidatesTags: ['Quizzes', 'Content'],
+    }),
   }),
 })
 
@@ -85,4 +124,9 @@ export const {
   useUpdateQuestionMutation,
   useDeleteQuestionMutation,
   useReorderQuestionsMutation,
+  useQuizOverviewQuery,
+  useStartAttemptMutation,
+  useAttemptQuery,
+  useSaveAnswerMutation,
+  useSubmitAttemptMutation,
 } = quizApi

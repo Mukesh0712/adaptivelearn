@@ -111,3 +111,97 @@ export type QuestionInput = {
   | { type: 'short'; answerMode: 'text'; acceptedAnswers: string[] }
   | { type: 'short'; answerMode: 'number'; numericAnswer: number; tolerance: number }
 )
+
+// ---- Student side (backend/src/controllers/attempt.controller.ts) ----
+
+export interface AttemptSummary {
+  id: string
+  number: number
+  status: 'in_progress' | 'submitted'
+  startedAt: string
+  submittedAt: string | null
+  score: number | null
+  maxScore: number
+  percent: number | null
+  passed: boolean | null
+}
+
+export interface QuizOverview {
+  quiz: {
+    id: string
+    title: string
+    instructions: string
+    kind: QuizKind
+    timeLimitMinutes: number | null
+    maxAttempts: number | null
+    passPercent: number
+    dueAt: string | null
+    questionCount: number
+    totalPoints: number
+  }
+  course: { id: string; title: string }
+  attempts: AttemptSummary[]
+  bestPercent: number | null
+  inProgressId: string | null
+  cannotStart: string | null // why a new attempt can't start, or null
+}
+
+export interface StudentAnswer {
+  selected: string[]
+  bool: boolean | null
+  text: string
+}
+
+export type Verdict = 'correct' | 'partial' | 'wrong' | 'unanswered'
+
+export interface AttemptQuestion {
+  id: string
+  type: QuestionType
+  text: string
+  points: number
+  answerMode?: 'text' | 'number'
+  options: QuizOption[]
+  answer: StudentAnswer
+  // Only after submitting, and only when answers are revealed:
+  earned?: number
+  verdict?: Verdict
+  explanation?: string
+  correctOptions?: string[]
+  correctBool?: boolean
+  acceptedAnswers?: string[]
+  numericAnswer?: number
+  tolerance?: number
+}
+
+export interface Attempt {
+  id: string
+  number: number
+  status: 'in_progress' | 'submitted'
+  startedAt: string
+  deadline?: string | null
+  serverNow?: string
+  submittedAt?: string | null
+  autoSubmitted?: boolean
+  score?: number
+  maxScore?: number
+  percent?: number
+  passed?: boolean
+  passPercent?: number
+  revealed?: boolean
+  revealHint?: string
+  questions: AttemptQuestion[]
+}
+
+// A quiz in the student's course outline.
+export interface StudentQuizItem {
+  id: string
+  title: string
+  module: string | null
+  kind: QuizKind
+  dueAt: string | null
+  timeLimitMinutes: number | null
+  questionCount: number
+  attempts: number
+  inProgress: boolean
+  bestPercent: number | null
+}

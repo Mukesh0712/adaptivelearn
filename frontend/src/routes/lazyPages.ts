@@ -26,4 +26,6 @@ export const StudentCoursePage = lazy(() => import('@/portals/student/StudentCou
 export const LessonReaderPage = lazy(() => import('@/portals/student/LessonReaderPage'))
 export const LessonEditorPage = lazy(() => import('@/features/content/LessonEditorPage'))
 export const QuizEditorPage = lazy(() => import('@/features/quizzes/QuizEditorPage'))
+export const QuizOverviewPage = lazy(() => import('@/features/quizzes/QuizOverviewPage'))
+export const AttemptPage = lazy(() => import('@/features/quizzes/AttemptPage'))
 export const ApprovalsPage = lazy(() => import('@/features/approvals/ApprovalsPage'))

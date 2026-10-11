@@ -104,3 +104,21 @@ export const questionSchema = z.discriminatedUnion(
   { error: 'Choose a question type' },
 );
 export type QuestionInput = z.infer<typeof questionSchema>;
+
+export const attemptParamsSchema = z.object({
+  courseId: objectId,
+  quizId: objectId.optional(),
+  attemptId: objectId.optional(),
+  questionId: objectId.optional(),
+});
+
+// PUT …/attempts/:attemptId/answers/:questionId : one answer. Which field
+// is used depends on the question's type (checked in the controller).
+export const answerSchema = z
+  .object({
+    selected: z.array(objectId).max(8),
+    bool: z.boolean().nullable(),
+    text: z.string().max(500, 'Answers must be at most 500 characters'),
+  })
+  .partial();
+export type AnswerInput = z.infer<typeof answerSchema>;
