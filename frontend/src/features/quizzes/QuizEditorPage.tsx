@@ -403,7 +403,9 @@ function SettingsCard({ data, courseId }: { data: QuizEditorData; courseId: stri
               <p id="s-reveal-help" className="text-xs text-muted-foreground">
                 {values.reveal === 'auto'
                   ? autoRevealText(values.kind, !!values.dueAt, values.attempts ? Number(values.attempts) : null)
-                  : 'Explanations are shown together with the answers.'}
+                  : values.reveal === 'after_due' && !values.dueAt
+                    ? 'No due date is set, so students will never see the answers. Set a due date, or choose another option.'
+                    : 'Explanations are shown together with the answers.'}
               </p>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/authenticate.js';
+import { quizSaveLimiter } from '../middleware/rateLimiters.js';
 import { validate } from '../middleware/validate.js';
 import {
   addQuestion,
@@ -45,7 +46,7 @@ quizRouter.delete('/quizzes/:quizId/questions/:questionId', authenticate, delete
 // Taking a quiz (students enrolled in the course).
 quizRouter.post('/quizzes/:quizId/attempts', authenticate, startAttempt);
 quizRouter.get('/attempts/:attemptId', authenticate, getAttempt);
-quizRouter.put('/attempts/:attemptId/answers/:questionId', authenticate, validate(answerSchema), saveAnswer);
+quizRouter.put('/attempts/:attemptId/answers/:questionId', authenticate, quizSaveLimiter, validate(answerSchema), saveAnswer);
 quizRouter.post('/attempts/:attemptId/submit', authenticate, submitAttempt);
 
 // Results (instructor/admin of the course).
