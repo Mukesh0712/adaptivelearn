@@ -13,6 +13,6 @@ export const SITE = {
   // TODO: replace with the legal name of the organisation running the site.
   organisation: 'AdaptiveLearn',
   // Last time the Privacy Policy / Terms text changed.
-  legalLastUpdated: '28 September 2026',
+  legalLastUpdated: '24 October 2026',
   url: (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, '') ?? window.location.origin,
 } as const

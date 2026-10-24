@@ -5,6 +5,7 @@ import { LessonModel } from '../models/Lesson.js';
 import { ApiError } from '../utils/ApiError.js';
 import { aiRequest } from '../utils/aiClient.js';
 import { withAiRequest } from '../utils/aiQuota.js';
+import { stripLinks } from '../utils/aiText.js';
 import { questionSchema, type GenerateQuestionsInput } from '../validators/quiz.schema.js';
 import { contentParamsSchema } from '../validators/content.schema.js';
 import { editAccess } from './content.controller.js';
@@ -57,7 +58,7 @@ export async function summarizeLesson(req: Request, res: Response) {
   const { result, left } = await withAiRequest(req.user!, () =>
     aiRequest('/v1/summary', summarySchema, { method: 'POST', body: { lesson }, timeoutMs: TOOL_TIMEOUT_MS }),
   );
-  res.json({ summary: result.summary, left });
+  res.json({ summary: stripLinks(result.summary), left });
 }
 
 // POST /api/courses/:courseId/quizzes/:quizId/ai/questions
@@ -80,15 +81,21 @@ export async function generateQuestions(req: Request, res: Response) {
     });
     let dropped = ai.dropped;
     const drafts = ai.questions.flatMap((q) => {
-      const base = { type: q.type, text: q.text, points: 1, topic: q.topic, explanation: q.explanation };
+      const base = {
+        type: q.type,
+        text: stripLinks(q.text),
+        points: 1,
+        topic: stripLinks(q.topic),
+        explanation: stripLinks(q.explanation),
+      };
       const draft =
         q.type === 'single'
-          ? { ...base, options: q.options, correct: q.correct }
+          ? { ...base, options: q.options.map(stripLinks), correct: q.correct }
           : q.type === 'multiple'
-            ? { ...base, options: q.options, correct: q.correct, partialCredit: false }
+            ? { ...base, options: q.options.map(stripLinks), correct: q.correct, partialCredit: false }
             : q.type === 'true_false'
               ? { ...base, correctBool: q.correct_bool }
-              : { ...base, answerMode: 'text', acceptedAnswers: q.accepted_answers };
+              : { ...base, answerMode: 'text', acceptedAnswers: q.accepted_answers.map(stripLinks) };
       const checked = questionSchema.safeParse(draft);
       if (!checked.success) {
         dropped++;

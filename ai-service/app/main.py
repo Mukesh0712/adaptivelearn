@@ -6,12 +6,12 @@ Run locally (inside the virtual environment, from the ai-service folder):
 
 import logging
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 
 from app.config import load_settings
 from app.providers import get_provider
 from app.providers.base import AIProvider
-from app.security import require_internal_key
+from app.security import InternalOnly
 from app.tasks import chat, instructor
 from app.tasks.feedback import MAX_TOKENS, SYSTEM, FeedbackRequest, FeedbackResponse, build_prompt, clean_output
 
@@ -28,6 +28,8 @@ app = FastAPI(
 )
 app.state.settings = settings
 app.state.provider = get_provider(settings)
+# The secret check and size limit for every /v1 route (see security.py).
+app.add_middleware(InternalOnly, secret=settings.service_secret)
 
 
 # Public, and says nothing about the setup: Render calls it to check the
@@ -37,9 +39,9 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-# Everything under /v1 needs the shared secret: the check is attached to the
-# router once, so a new route can't forget it.
-v1 = APIRouter(prefix="/v1", dependencies=[Depends(require_internal_key)])
+# Everything under /v1 is guarded by the InternalOnly middleware above, so
+# a new route can't forget the check.
+v1 = APIRouter(prefix="/v1")
 
 
 @v1.get("/status")
