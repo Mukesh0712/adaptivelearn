@@ -3,8 +3,11 @@ import type { Types } from 'mongoose';
 import { ModuleModel } from '../models/Module.js';
 import { QuizModel } from '../models/Quiz.js';
 import { QuizAttemptModel } from '../models/QuizAttempt.js';
-import { computeMastery, GENERAL_TOPIC, type AttemptEvidence, type TopicMastery } from '../utils/mastery.js';
+import { LessonProgressModel } from '../models/LessonProgress.js';
+import { computeMastery, GENERAL_TOPIC, keyOf, type AttemptEvidence, type TopicMastery } from '../utils/mastery.js';
+import { recommend, type RecLesson, type RecQuiz } from '../utils/recommend.js';
 import { studentAccess } from './attempt.controller.js';
+import { outline } from './content.controller.js';
 
 // The adaptive learning engine: topic mastery (BKT), recommendations and
 // at-risk students. Everything is calculated from the stored quiz attempts
@@ -56,13 +59,53 @@ export const topicJson = (t: TopicMastery) => ({
   lastPracticed: t.lastPracticed,
 });
 
-// GET /api/courses/:courseId/mastery/me : the student's own mastery per topic.
+// GET /api/courses/:courseId/mastery/me : the student's own mastery per
+// topic, and "next steps" recommendations (utils/recommend.ts).
 export async function myMastery(req: Request, res: Response) {
   const access = await studentAccess(req); // enrolled students only, else 403/404
-  const { byStudent, fallback } = await courseEvidence(access.course._id, [req.user!.id]);
-  const topics = computeMastery(byStudent.get(req.user!.id) ?? [], fallback);
+  const courseId = access.course._id;
+  const studentId = req.user!.id;
+  const [{ byStudent, fallback }, modules, quizzes, open] = await Promise.all([
+    courseEvidence(courseId, [studentId]),
+    outline(courseId, true),
+    QuizModel.find({ course: courseId, status: 'published' }).select('title module kind dueAt maxAttempts questions.topic'),
+    // Attempts in progress whose time hasn't run out.
+    QuizAttemptModel.find({
+      course: courseId,
+      student: studentId,
+      status: 'in_progress',
+      $or: [{ deadline: null }, { deadline: { $gt: new Date() } }],
+    }).select('quiz'),
+  ]);
+  const evidence = byStudent.get(studentId) ?? [];
+  const topics = computeMastery(evidence, fallback);
+
+  const lessonList = modules.flatMap((m) => m.lessons.map((l) => ({ id: l.id, title: l.title, moduleId: m.id })));
+  const done = new Set(
+    (
+      await LessonProgressModel.find({ student: studentId, lesson: { $in: lessonList.map((l) => l.id) } }).select('lesson')
+    ).map((p) => String(p.lesson)),
+  );
+  const lessons: RecLesson[] = lessonList.map((l) => ({ ...l, done: done.has(l.id) }));
+  const submitted = new Map<string, number>();
+  for (const a of evidence) submitted.set(a.quiz, (submitted.get(a.quiz) ?? 0) + 1);
+  const inProgress = new Set(open.map((a) => String(a.quiz)));
+  const recQuizzes: RecQuiz[] = quizzes.map((q) => ({
+    id: q.id,
+    title: q.title,
+    moduleId: q.module ? String(q.module) : null,
+    kind: q.kind,
+    dueAt: q.dueAt ?? null,
+    maxAttempts: q.maxAttempts ?? null,
+    // Same topic names as mastery: the tag, or the module for untagged.
+    topicKeys: [...new Set(q.questions.map((x) => keyOf(x.topic?.trim() || fallback.get(q.id) || GENERAL_TOPIC)))],
+    attemptsUsed: submitted.get(q.id) ?? 0,
+    inProgress: inProgress.has(q.id),
+  }));
+
   res.json({
     topics: topics.map(topicJson),
+    nextSteps: recommend(lessons, recQuizzes, topics),
     summary: {
       mastered: topics.filter((t) => t.level === 'mastered').length,
       learning: topics.filter((t) => t.level === 'learning').length,

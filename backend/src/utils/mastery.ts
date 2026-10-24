@@ -37,7 +37,7 @@ export interface TopicMastery {
 
 export const GENERAL_TOPIC = 'General';
 
-const keyOf = (name: string) => name.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
+export const keyOf = (name: string) => name.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
 
 // `fallbackTopic`: quiz id → name used for its untagged questions (the
 // module title, or "General").
