@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { MyProgress } from '@/features/adaptive/MyProgress'
 import { parseApiError } from '@/features/auth/apiError'
 import { useCourseContentQuery } from '@/features/content/contentApi'
 import { StudentQuizRow } from '@/features/quizzes/StudentQuizRow'
@@ -83,6 +84,8 @@ export default function StudentCoursePage() {
       {progress && progress.total > 0 && (
         <ProgressBar done={progress.done} total={progress.total} label={`Your progress in ${course.title}`} className="max-w-md" />
       )}
+
+      {(modules.length > 0 || courseTests.length > 0) && <MyProgress courseId={course.id} />}
 
       {!modules.length && !courseTests.length ? (
         <Card>

@@ -62,6 +62,8 @@ quizAttemptSchema.index(
 );
 quizAttemptSchema.index({ quiz: 1, status: 1 });
 quizAttemptSchema.index({ student: 1 });
+// A course's attempts, per student (mastery, recommendations, class insights).
+quizAttemptSchema.index({ course: 1, student: 1, status: 1 });
 
 export type QuizAttempt = InferSchemaType<typeof quizAttemptSchema>;
 export type QuizAttemptDocument = HydratedDocument<QuizAttempt>;

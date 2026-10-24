@@ -73,7 +73,7 @@ async function moduleIn(course: CourseDocument, moduleId?: string) {
 // position. Students only ever get published lessons.
 // keep: module ids to show even with no published lessons (e.g. they have
 // a published quiz).
-async function outline(courseId: Types.ObjectId, publishedOnly: boolean, keep: Set<string> = new Set()) {
+export async function outline(courseId: Types.ObjectId, publishedOnly: boolean, keep: Set<string> = new Set()) {
   const [modules, lessons] = await Promise.all([
     ModuleModel.find({ course: courseId }).sort({ position: 1, _id: 1 }),
     LessonModel.find({ course: courseId, ...(publishedOnly ? { status: 'published' } : {}) })
