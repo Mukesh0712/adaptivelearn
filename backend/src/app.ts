@@ -9,6 +9,7 @@ import { adminRouter } from './routes/admin.routes.js';
 import { courseRouter } from './routes/course.routes.js';
 import { contentRouter } from './routes/content.routes.js';
 import { quizRouter } from './routes/quiz.routes.js';
+import { adaptiveRouter } from './routes/adaptive.routes.js';
 import { dashboardRouter } from './routes/dashboard.routes.js';
 import { profileRouter } from './routes/profile.routes.js';
 import { approvalRouter } from './routes/approval.routes.js';
@@ -73,6 +74,7 @@ app.use('/api/admin', adminRouter);
 // the course routes, and anything else falls through to courseRouter.
 app.use('/api/courses/:courseId', contentRouter);
 app.use('/api/courses/:courseId', quizRouter);
+app.use('/api/courses/:courseId', adaptiveRouter);
 app.use('/api/courses', courseRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/profile', profileRouter);

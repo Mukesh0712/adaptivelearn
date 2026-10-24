@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "seed:admin": "tsx src/scripts/seedAdmin.ts",
-    "check:storage": "tsx src/scripts/checkStorage.ts"
+    "check:storage": "tsx src/scripts/checkStorage.ts",
+    "test": "tsx --test \"src/**/*.test.ts\""
   },
   "keywords": [],
   "author": "",
