@@ -33,3 +33,36 @@ export const LEVEL_LABEL: Record<MasteryLevel, string> = {
   learning: 'Learning',
   needs_practice: 'Needs practice',
 }
+
+// ---- Instructor: class insights (GET /courses/:courseId/insights) ----
+
+export type RiskLevel = 'at_risk' | 'watch' | 'ok'
+export type RiskSignal = 'low_scores' | 'low_mastery' | 'behind_lessons' | 'inactive' | 'missed_due'
+
+export interface InsightStudent {
+  id: string
+  name: string
+  email: string
+  lessonsDone: number
+  quizzesTaken: number
+  averageScore: number | null
+  lastActivity: string
+  // Keyed by topic key (see InsightTopic.key). Missing: not answered yet.
+  topics: Record<string, { mastery: number; level: MasteryLevel; answered: number }>
+  risk: { level: RiskLevel; reasons: { signal: RiskSignal; text: string }[] }
+}
+
+export interface InsightTopic {
+  key: string
+  topic: string
+  students: number // how many students have answered it
+  average: number // class average mastery, 0..1
+  needsPractice: number
+  mastered: number
+}
+
+export interface ClassInsights {
+  topics: InsightTopic[] // hardest for the class first
+  students: InsightStudent[] // at risk, then watch, then ok
+  summary: { students: number; lessons: number; atRisk: number; watch: number }
+}

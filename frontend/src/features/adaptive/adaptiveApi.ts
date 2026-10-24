@@ -1,5 +1,5 @@
 import { baseApi } from '@/services/baseApi'
-import type { MyMastery } from './types'
+import type { ClassInsights, MyMastery } from './types'
 
 export const adaptiveApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -10,7 +10,12 @@ export const adaptiveApi = baseApi.injectEndpoints({
       query: (courseId) => `/courses/${courseId}/mastery/me`,
       providesTags: ['Quizzes', 'Content', 'Courses'],
     }),
+    // Instructor/admin: the whole class (heatmap + at-risk).
+    classInsights: build.query<ClassInsights, string>({
+      query: (courseId) => `/courses/${courseId}/insights`,
+      providesTags: ['Quizzes', 'Content', 'Courses'],
+    }),
   }),
 })
 
-export const { useMyMasteryQuery } = adaptiveApi
+export const { useMyMasteryQuery, useClassInsightsQuery } = adaptiveApi

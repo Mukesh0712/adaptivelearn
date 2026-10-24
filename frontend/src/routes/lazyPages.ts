@@ -30,4 +30,5 @@ export const QuizOverviewPage = lazy(() => import('@/features/quizzes/QuizOvervi
 export const AttemptPage = lazy(() => import('@/features/quizzes/AttemptPage'))
 export const QuizResultsPage = lazy(() => import('@/features/quizzes/QuizResultsPage'))
 export const InstructorAttemptPage = lazy(() => import('@/features/quizzes/InstructorAttemptPage'))
+export const ClassInsightsPage = lazy(() => import('@/features/adaptive/ClassInsightsPage'))
 export const ApprovalsPage = lazy(() => import('@/features/approvals/ApprovalsPage'))
