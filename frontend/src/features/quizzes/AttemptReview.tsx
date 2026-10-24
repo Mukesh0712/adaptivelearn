@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Markdown } from '@/features/content/Markdown'
+import { AiExplain } from './AiExplain'
 import { cn } from '@/lib/utils'
 import type { Attempt, AttemptQuestion, StudentAnswer, Verdict } from './types'
 
@@ -177,7 +178,9 @@ export function QuestionBlock({
 
 
 // The score card, the "answers shown later" note and the question review.
-export function AttemptResult({ attempt, action }: { attempt: Attempt; action?: ReactNode }) {
+// courseId: given on the student's own page, where wrong answers get an
+// "Explain my mistake" button (when the server allows AI explanations).
+export function AttemptResult({ attempt, action, courseId }: { attempt: Attempt; action?: ReactNode; courseId?: string }) {
   return (
     <>
       <Card>
@@ -217,8 +220,16 @@ export function AttemptResult({ attempt, action }: { attempt: Attempt; action?: 
           {attempt.questions.map((q, i) => (
             <li key={q.id}>
               <Card>
-                <CardContent>
+                <CardContent className="grid gap-3">
                   <QuestionBlock q={q} index={i} answer={q.answer} review />
+                  {courseId && attempt.aiExplain && q.verdict && q.verdict !== 'correct' && (
+                    <AiExplain
+                      courseId={courseId}
+                      attemptId={attempt.id}
+                      questionId={q.id}
+                      unanswered={q.verdict === 'unanswered'}
+                    />
+                  )}
                 </CardContent>
               </Card>
             </li>

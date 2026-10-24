@@ -22,7 +22,7 @@ const params = (req: Request) => {
 };
 
 // A quiz of THIS course (an id from another course gives 404).
-async function quizIn(req: Request, access: Access): Promise<QuizDocument> {
+export async function quizIn(req: Request, access: Access): Promise<QuizDocument> {
   const { quizId } = params(req);
   const quiz = quizId ? await QuizModel.findOne({ _id: quizId, course: access.course._id }) : null;
   if (!quiz) throw ApiError.notFound('Quiz not found');
@@ -202,6 +202,24 @@ export async function addQuestion(req: Request, res: Response) {
     question: quiz.toJSON().questions.at(-1),
     totalPoints: totalPoints(quiz),
     message: 'Question added',
+  });
+}
+
+// POST /api/courses/:courseId/quizzes/:quizId/questions/bulk : add several
+// at once (all or none), e.g. the AI drafts the instructor kept.
+export async function addQuestions(req: Request, res: Response) {
+  const access = await editAccess(req);
+  const quiz = await quizIn(req, access);
+  const { questions } = req.body as { questions: QuestionInput[] };
+  if (quiz.questions.length + questions.length > MAX_QUESTIONS) {
+    const room = MAX_QUESTIONS - quiz.questions.length;
+    throw ApiError.conflict(`A quiz can have at most ${MAX_QUESTIONS} questions: there is room for ${room} more.`);
+  }
+  for (const q of questions) quiz.questions.push(toQuestion(q));
+  await quiz.save();
+  res.status(201).json({
+    totalPoints: totalPoints(quiz),
+    message: `${questions.length} ${questions.length === 1 ? 'question' : 'questions'} added`,
   });
 }
 

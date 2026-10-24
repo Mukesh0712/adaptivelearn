@@ -65,7 +65,7 @@ export default function AttemptPage() {
     // key: a fresh form per attempt.
     <TakeQuiz key={data.attempt.id} attempt={data.attempt} title={data.quiz.title} courseId={courseId} back={back} onEnded={() => void refetch()} />
   ) : (
-    <Results attempt={data.attempt} title={data.quiz.title} quizPath={quizPath} back={back} />
+    <Results attempt={data.attempt} title={data.quiz.title} quizPath={quizPath} courseId={courseId} back={back} />
   )
 }
 
@@ -296,7 +296,19 @@ function TakeQuiz({
 }
 
 
-function Results({ attempt, title, quizPath, back }: { attempt: Attempt; title: string; quizPath: string; back: React.ReactNode }) {
+function Results({
+  attempt,
+  title,
+  quizPath,
+  courseId,
+  back,
+}: {
+  attempt: Attempt
+  title: string
+  quizPath: string
+  courseId: string
+  back: React.ReactNode
+}) {
   const heading = useRef<HTMLHeadingElement>(null)
   useEffect(() => heading.current?.focus(), [])
   return (
@@ -316,6 +328,7 @@ function Results({ attempt, title, quizPath, back }: { attempt: Attempt; title: 
       </div>
       <AttemptResult
         attempt={attempt}
+        courseId={courseId}
         action={
           <Link to={quizPath} className={buttonVariants({ variant: 'outline', className: 'sm:ml-auto' })}>
             Back to the quiz

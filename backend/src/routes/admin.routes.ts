@@ -14,6 +14,7 @@ import {
   resendInvite,
 } from '../controllers/admin.controller.js';
 import { validate } from '../middleware/validate.js';
+import { aiStatus } from '../controllers/ai.controller.js';
 import {
   createCourseFor,
   listAllCourses,
@@ -50,3 +51,4 @@ adminRouter.get('/courses', listAllCourses);
 adminRouter.patch('/courses/:id/status', validate(courseStatusSchema), setAnyCourseStatus);
 adminRouter.post('/courses', validate(adminCreateCourseSchema), createCourseFor);
 adminRouter.patch('/courses/:id/instructor', validate(reassignCourseSchema), reassignCourse);
+adminRouter.get('/ai/status', aiStatus);

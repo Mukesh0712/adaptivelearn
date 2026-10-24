@@ -1,6 +1,8 @@
-# Render Blueprint: Render reads this file to create and configure the service.
-# One web service runs Express, which serves both the API (/api/*) and the
-# built React app from the same address.
+# Render Blueprint: Render reads this file to create and configure the services.
+# 1. adaptivelearn: Express, which serves both the API (/api/*) and the
+#    built React app from the same address.
+# 2. adaptivelearn-ai: the Python AI service. Only adaptivelearn calls it,
+#    with a shared secret; browsers never do.
 services:
   - type: web
     name: adaptivelearn
@@ -43,3 +45,34 @@ services:
         value: AdaptiveLearn
       # CLIENT_ORIGIN and VITE_SITE_URL default to Render's own address
       # (RENDER_EXTERNAL_URL). Set them only when you add a custom domain.
+      # AI service: its https:// address (shown on its Render page), and
+      # the same secret it was given (copied from it automatically).
+      - key: AI_SERVICE_URL
+        sync: false
+      - key: AI_SERVICE_SECRET
+        fromService:
+          type: web
+          name: adaptivelearn-ai
+          envVarKey: AI_SERVICE_SECRET
+
+  - type: web
+    name: adaptivelearn-ai
+    runtime: python
+    plan: free # sleeps after ~15 min without requests; the first one wakes it (up to a minute)
+    region: singapore
+    branch: main
+    autoDeploy: true
+    rootDir: ai-service
+    buildCommand: pip install -r requirements.txt
+    # --no-server-header: don't advertise the server software in responses.
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --no-server-header
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: "3.11.15"
+      - key: AI_SERVICE_SECRET
+        generateValue: true
+      - key: AI_PROVIDER
+        value: mock

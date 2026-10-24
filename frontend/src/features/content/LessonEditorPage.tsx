@@ -24,6 +24,7 @@ import { FieldError } from '@/features/auth/pages/AuthCard'
 import { parseApiError } from '@/features/auth/apiError'
 import { formatDateTime } from '@/lib/dates'
 import { useDeleteLessonMutation, useLessonQuery, useUpdateLessonMutation } from './contentApi'
+import { AiSummaryButton } from './AiSummaryDialog'
 import { LessonStatusBadge } from './LessonStatusBadge'
 import { Markdown } from './Markdown'
 import { ResourcesEditor } from './ResourcesEditor'
@@ -184,16 +185,29 @@ function Editor({
       <div className="grid gap-2">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <Label htmlFor="lesson-content">Lesson text</Label>
-          {/* Two toggle buttons; aria-pressed tells screen readers which is on. */}
-          <div className="flex rounded-lg border p-0.5" role="group" aria-label="Editor view">
-            <Button size="sm" variant={preview ? 'ghost' : 'secondary'} aria-pressed={!preview} onClick={() => setPreview(false)}>
-              <Pencil aria-hidden="true" />
-              Write
-            </Button>
-            <Button size="sm" variant={preview ? 'secondary' : 'ghost'} aria-pressed={preview} onClick={() => setPreview(true)}>
-              <Eye aria-hidden="true" />
-              Preview
-            </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <AiSummaryButton
+              courseId={courseId}
+              lessonId={lesson.id}
+              dirty={dirty}
+              content={content}
+              onInsert={(text) => {
+                setContent(text)
+                setPreview(false)
+                toast.success('Summary added at the top. Read it through, then save.')
+              }}
+            />
+            {/* Two toggle buttons; aria-pressed tells screen readers which is on. */}
+            <div className="flex rounded-lg border p-0.5" role="group" aria-label="Editor view">
+              <Button size="sm" variant={preview ? 'ghost' : 'secondary'} aria-pressed={!preview} onClick={() => setPreview(false)}>
+                <Pencil aria-hidden="true" />
+                Write
+              </Button>
+              <Button size="sm" variant={preview ? 'secondary' : 'ghost'} aria-pressed={preview} onClick={() => setPreview(true)}>
+                <Eye aria-hidden="true" />
+                Preview
+              </Button>
+            </div>
           </div>
         </div>
         {preview ? (

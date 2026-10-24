@@ -119,3 +119,14 @@ export interface AuditLog {
   }
   createdAt: string
 }
+
+// GET /api/admin/ai/status
+export type AiStatus = {
+  configured: boolean
+  reachable: boolean
+  provider?: string
+  model?: string
+  responseMs?: number
+  problem?: string
+  limits: { studentDaily: number; instructorDaily: number }
+}

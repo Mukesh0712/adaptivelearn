@@ -55,9 +55,31 @@ const envSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
+
+  // AI features (optional): address of the Python AI service and the secret
+  // shared with it. Without both, AI features are switched off and the rest
+  // of the app works as normal.
+  AI_SERVICE_URL: z.preprocess((v) => (v === '' ? undefined : v), z.url({ protocol: /^https?$/ }).optional()),
+  AI_SERVICE_SECRET: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(32, 'AI_SERVICE_SECRET must be at least 32 characters').optional(),
+  ),
+  // How long to wait for one AI answer before giving up.
+  AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(25000),
+  // Daily AI limits per person (counted from midnight UTC), so one account
+  // can't use up the AI budget. Change them here and restart the server.
+  AI_STUDENT_DAILY_LIMIT: z.coerce.number().int().min(0).default(30),
+  AI_INSTRUCTOR_DAILY_LIMIT: z.coerce.number().int().min(0).default(50),
 });
 
-const parsed = envSchema.safeParse(process.env);
+const parsed = envSchema
+  // In production the AI service is reached over the internet, so the shared
+  // secret must travel encrypted (https), never as plain http.
+  .refine((e) => e.NODE_ENV !== 'production' || !e.AI_SERVICE_URL || new URL(e.AI_SERVICE_URL).protocol === 'https:', {
+    message: 'must start with https:// in production',
+    path: ['AI_SERVICE_URL'],
+  })
+  .safeParse(process.env);
 
 if (!parsed.success) {
   console.error('Invalid environment configuration:');

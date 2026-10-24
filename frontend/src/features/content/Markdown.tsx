@@ -56,10 +56,17 @@ const components: Components = {
 // react-markdown builds React elements and never runs raw HTML, and it
 // drops dangerous link targets such as "javascript:".
 // remark-gfm adds tables, ~~strikethrough~~, task lists and bare URLs.
-export function Markdown({ children }: { children: string }) {
+// noLinks: for AI-written text. A trick hidden in quiz data could make the
+// AI write a link to a fake website; with noLinks, links and images are
+// shown as plain text, never as something to click.
+export function Markdown({ children, noLinks = false }: { children: string; noLinks?: boolean }) {
   return (
     <div className="lesson-prose">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={components}
+        {...(noLinks ? { disallowedElements: ['a', 'img'], unwrapDisallowed: true } : {})}
+      >
         {children}
       </ReactMarkdown>
     </div>

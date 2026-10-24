@@ -105,6 +105,26 @@ export const questionSchema = z.discriminatedUnion(
 );
 export type QuestionInput = z.infer<typeof questionSchema>;
 
+// POST …/questions/bulk : several questions at once (AI drafts the
+// instructor chose to keep). Each is checked exactly like a single one.
+export const bulkQuestionsSchema = z.object({
+  questions: z.array(questionSchema).min(1, 'Choose at least one question').max(10, 'At most 10 questions at once'),
+});
+
+// POST …/quizzes/:quizId/ai/questions : what the AI should write.
+export const QUESTION_TYPES_FOR_AI = ['single', 'multiple', 'true_false', 'short'] as const;
+export const generateQuestionsSchema = z.object({
+  lessonId: objectId,
+  count: z.number().int().min(1).max(10),
+  types: z
+    .array(z.enum(QUESTION_TYPES_FOR_AI))
+    .min(1, 'Choose at least one question type')
+    .max(4)
+    .transform((t) => [...new Set(t)]),
+  difficulty: z.enum(['easy', 'medium', 'hard']).default('medium'),
+});
+export type GenerateQuestionsInput = z.infer<typeof generateQuestionsSchema>;
+
 export const attemptParamsSchema = z.object({
   courseId: objectId,
   quizId: objectId.optional(),

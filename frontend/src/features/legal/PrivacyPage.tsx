@@ -47,38 +47,63 @@ export default function PrivacyPage() {
         not use cookies and does not collect personal data.
       </p>
 
-      <h2>4. Sharing</h2>
+      <h2>4. AI features</h2>
+      <p>
+        {SITE.name} uses an AI model to explain wrong quiz answers, answer questions about a lesson (the study
+        assistant), and help instructors write summaries and practice questions. These features are optional and
+        only run when you ask.
+      </p>
+      <ul>
+        <li>
+          <strong>What the AI receives:</strong> the lesson or quiz question text, the answers, and the questions you
+          type to the study assistant. It never receives your name, email address or account details. Please don&apos;t
+          type personal information into the study assistant.
+        </li>
+        <li>
+          <strong>What we keep:</strong> study-assistant chats are not stored; they disappear when you leave the
+          lesson. Explanations of quiz mistakes are saved without any link to who asked, so the next student with the
+          same mistake gets the same explanation (kept up to 180 days). To apply daily limits we count how many AI
+          requests each account made in a day; these counts are deleted after two days.
+        </li>
+        <li>
+          <strong>Limits:</strong> AI answers can be wrong. Check them against the lesson or ask your instructor. The
+          study assistant is paused while you are taking a graded test.
+        </li>
+      </ul>
+
+      <h2>5. Sharing</h2>
       <p>
         We share data only with service providers that help us run {SITE.name}, such as our database host (MongoDB
-        Atlas) and email provider, under their data-protection terms, or where the law requires it.
+        Atlas), email provider and AI model provider (which receives only what is described in section 4), under
+        their data-protection terms, or where the law requires it.
       </p>
 
-      <h2>5. Security and retention</h2>
+      <h2>6. Security and retention</h2>
       <p>
         Data is encrypted in transit (HTTPS), passwords are hashed, and access is limited by role. We keep your
         account data while your account is active and delete it within a reasonable time after you ask us to close
         it, unless the law requires us to keep it longer.
       </p>
 
-      <h2>6. Your rights</h2>
+      <h2>7. Your rights</h2>
       <p>
         You can ask to access, correct or erase your personal data, withdraw consent, or raise a grievance by
         emailing {email}. We will respond within the time required by law.
       </p>
 
-      <h2>7. Children</h2>
+      <h2>8. Children</h2>
       <p>
         Where a user is under 18, we process their data only with verifiable consent from a parent or lawful
         guardian, as required by the DPDP Act.
       </p>
 
-      <h2>8. Changes</h2>
+      <h2>9. Changes</h2>
       <p>
         We will update this page when our practices change and show the new &quot;Last updated&quot; date. For
         significant changes, we will notify you by email or in the app.
       </p>
 
-      <h2>9. Contact</h2>
+      <h2>10. Contact</h2>
       <p>Questions or grievances: {email}.</p>
     </LegalLayout>
   )

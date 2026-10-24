@@ -5,6 +5,7 @@ import { PageMeta } from '@/components/PageMeta'
 import { StatCard } from '@/components/StatCard'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AiStatusCard } from '@/features/admin/AiStatusCard'
 import { PendingBanner } from '@/features/admin/PendingBanner'
 import { RecentActivity } from '@/features/admin/RecentActivity'
 import { useAdminDashboardQuery } from '@/features/dashboard/dashboardApi'
@@ -60,6 +61,7 @@ export default function AdminDashboard() {
               </CardHeader>
             </Card>
           ))}
+          <AiStatusCard />
         </div>
         <RecentActivity />
       </div>

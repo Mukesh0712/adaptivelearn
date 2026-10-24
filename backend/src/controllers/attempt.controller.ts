@@ -11,19 +11,21 @@ import { EnrollmentModel } from '../models/Enrollment.js';
 import { UserModel } from '../models/User.js';
 import { analyseItems, type AnalysedAttempt } from '../utils/itemAnalysis.js';
 import { courseAccess, editAccess, type Access } from './content.controller.js';
+import { env } from '../config/env.js';
+import { aiEnabled } from '../utils/aiClient.js';
 
 // Saves and submits arriving up to this long after the deadline still
 // count (the request may have been sent just in time on a slow network).
 const GRACE_MS = 15_000;
 
-const params = (req: Request) => {
+export const params = (req: Request) => {
   const p = attemptParamsSchema.safeParse(req.params);
   if (!p.success) throw ApiError.notFound('Not found');
   return p.data;
 };
 
 // Quizzes are taken by students enrolled in the course.
-async function studentAccess(req: Request): Promise<Access> {
+export async function studentAccess(req: Request): Promise<Access> {
   if (req.user!.role !== 'student') throw ApiError.forbidden('Only students take quizzes');
   return courseAccess(req); // enrolled in an active course, else 404
 }
@@ -126,6 +128,8 @@ function resultView(attempt: QuizAttemptDocument, quiz: QuizDocument | null, att
     passPercent: attempt.passPercent,
     revealed,
     revealHint: revealed || !quiz ? '' : revealHint(quiz),
+    // The student may ask the AI to explain their mistakes (see aiFeedback.controller.ts).
+    aiExplain: !forInstructor && revealed && aiEnabled && env.AI_STUDENT_DAILY_LIMIT > 0,
     questions: attempt.questions.map((q) => ({
       id: String(q.questionId),
       type: q.type,
@@ -263,7 +267,7 @@ export async function startAttempt(req: Request, res: Response) {
 }
 
 // The student's own attempt in a course they're in (anyone else: 404).
-async function myAttempt(req: Request, access: Access) {
+export async function myAttempt(req: Request, access: Access) {
   const { attemptId } = params(req);
   const attempt = attemptId
     ? await QuizAttemptModel.findOne({ _id: attemptId, course: access.course._id, student: req.user!.id })

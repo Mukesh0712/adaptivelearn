@@ -3,6 +3,7 @@ import type { ApprovalResult } from '@/features/approvals/approvalsApi'
 import type {
   AssignableRole,
   AdminCourse,
+  AiStatus,
   AuditLog,
   AuditLogParams,
   InviteRequest,
@@ -79,6 +80,12 @@ export const adminApi = baseApi.injectEndpoints({
       query: () => '/admin/audit-logs/actors',
       providesTags: ['AuditLogs'],
     }),
+    // Asks the server to check the AI service right now. Kept only briefly:
+    // an old "working" answer would hide a service that has since stopped.
+    aiStatus: build.query<AiStatus, void>({
+      query: () => '/admin/ai/status',
+      keepUnusedDataFor: 30,
+    }),
   }),
 })
 
@@ -97,4 +104,5 @@ export const {
   useSetAnyCourseStatusMutation,
   useAdminCreateCourseMutation,
   useReassignCourseMutation,
+  useAiStatusQuery,
 } = adminApi
