@@ -5,6 +5,7 @@ import type { QuestionInput } from '@/features/quizzes/types'
 // Every AI request updates the "left today" count, hence the 'Ai' tag.
 
 export type AiMe = { enabled: boolean; limit: number; left: number }
+export type ChatTurn = { role: 'student' | 'assistant'; text: string }
 export type DraftQuestionType = 'single' | 'multiple' | 'true_false' | 'short'
 export type GenerateQuestionsRequest = {
   courseId: string
@@ -37,7 +38,20 @@ export const aiApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Ai'],
     }),
+    // Study assistant: one question about a lesson. history: the last few
+    // messages (the chat lives only in the browser).
+    lessonChat: build.mutation<
+      { answer: string; left: number },
+      { courseId: string; lessonId: string; question: string; history: ChatTurn[] }
+    >({
+      query: ({ courseId, lessonId, ...body }) => ({
+        url: `/courses/${courseId}/lessons/${lessonId}/ai/chat`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Ai'],
+    }),
   }),
 })
 
-export const { useAiMeQuery, useSummarizeLessonMutation, useGenerateQuestionsMutation } = aiApi
+export const { useAiMeQuery, useSummarizeLessonMutation, useGenerateQuestionsMutation, useLessonChatMutation } = aiApi

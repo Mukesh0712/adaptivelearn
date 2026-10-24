@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { LessonModel } from '../models/Lesson.js';
 import { ApiError } from '../utils/ApiError.js';
 import { aiRequest } from '../utils/aiClient.js';
-import { takeAiRequest } from '../utils/aiQuota.js';
+import { withAiRequest } from '../utils/aiQuota.js';
 import { questionSchema, type GenerateQuestionsInput } from '../validators/quiz.schema.js';
 import { contentParamsSchema } from '../validators/content.schema.js';
 import { editAccess } from './content.controller.js';
@@ -47,18 +47,6 @@ async function sourceLesson(courseId: Types.ObjectId, lessonId: string | undefin
   return { title: lesson.title, content: lesson.content };
 }
 
-// Runs one AI tool request, counted against the caller's daily limit and
-// given back if the AI fails.
-async function withQuota<T>(req: Request, run: () => Promise<T>) {
-  const { left, refund } = await takeAiRequest(req.user!);
-  try {
-    return { result: await run(), left };
-  } catch (err) {
-    await refund();
-    throw err;
-  }
-}
-
 // POST /api/courses/:courseId/lessons/:lessonId/ai/summary
 // Uses the SAVED lesson text (not whatever is in the editor), so the AI
 // only ever sees real course content.
@@ -66,7 +54,7 @@ export async function summarizeLesson(req: Request, res: Response) {
   const access = await editAccess(req);
   const p = contentParamsSchema.safeParse(req.params);
   const lesson = await sourceLesson(access.course._id, p.success ? p.data.lessonId : undefined);
-  const { result, left } = await withQuota(req, () =>
+  const { result, left } = await withAiRequest(req.user!, () =>
     aiRequest('/v1/summary', summarySchema, { method: 'POST', body: { lesson }, timeoutMs: TOOL_TIMEOUT_MS }),
   );
   res.json({ summary: result.summary, left });
@@ -84,7 +72,7 @@ export async function generateQuestions(req: Request, res: Response) {
 
   // The checks run inside withQuota: if no question survives them, the
   // request is given back like any other AI failure.
-  const { result, left } = await withQuota(req, async () => {
+  const { result, left } = await withAiRequest(req.user!, async () => {
     const ai = await aiRequest('/v1/questions', questionsSchema, {
       method: 'POST',
       body: { lesson, count: input.count, types: input.types, difficulty: input.difficulty },

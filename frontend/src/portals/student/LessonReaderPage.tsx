@@ -6,6 +6,7 @@ import { PageMeta } from '@/components/PageMeta'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { StudyAssistant } from '@/features/ai/StudyAssistant'
 import { parseApiError } from '@/features/auth/apiError'
 import { useLessonQuery, useSetProgressMutation } from '@/features/content/contentApi'
 import { Markdown } from '@/features/content/Markdown'
@@ -137,6 +138,9 @@ export default function LessonReaderPage() {
           </ul>
         </section>
       )}
+
+      {/* key: each lesson starts with an empty chat. */}
+      <StudyAssistant key={lesson.id} courseId={courseId} lessonId={lesson.id} />
 
       {/* A toggle: aria-pressed says whether it's on; the name stays the same. */}
       <div className="flex max-w-3xl flex-wrap items-center gap-3 rounded-lg border bg-muted/40 px-4 py-3">

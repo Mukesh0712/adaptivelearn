@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/authenticate.js';
 import { validate } from '../middleware/validate.js';
 import { summarizeLesson } from '../controllers/aiTools.controller.js';
+import { lessonChat } from '../controllers/aiChat.controller.js';
+import { lessonChatSchema } from '../validators/ai.schema.js';
 import {
   createLesson,
   createModule,
@@ -52,6 +54,8 @@ contentRouter.patch('/lessons/:lessonId', authenticate, validate(updateLessonSch
 contentRouter.delete('/lessons/:lessonId', authenticate, deleteLesson);
 // AI summary of the saved lesson text (instructor/admin).
 contentRouter.post('/lessons/:lessonId/ai/summary', authenticate, aiLimiter, summarizeLesson);
+// Study assistant: a student's question about this lesson.
+contentRouter.post('/lessons/:lessonId/ai/chat', authenticate, aiLimiter, validate(lessonChatSchema), lessonChat);
 contentRouter.post('/lessons/:lessonId/resources', authenticate, validate(newResourceSchema), addResource);
 contentRouter.put('/lessons/:lessonId/resources/order', authenticate, validate(orderSchema), reorderResources);
 contentRouter.delete('/lessons/:lessonId/resources/:resourceId', authenticate, deleteResource);

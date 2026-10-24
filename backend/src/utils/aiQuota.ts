@@ -60,3 +60,15 @@ export async function takeAiRequest(user: { id: string; role: string }) {
     }
   }
 }
+
+// Runs one AI request counted against the caller's daily limit, and gives
+// it back if `run` fails (AI down, unusable answer...).
+export async function withAiRequest<T>(user: { id: string; role: string }, run: () => Promise<T>) {
+  const { left, refund } = await takeAiRequest(user);
+  try {
+    return { result: await run(), left };
+  } catch (err) {
+    await refund();
+    throw err;
+  }
+}

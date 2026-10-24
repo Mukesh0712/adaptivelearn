@@ -60,6 +60,17 @@ def _sample_questions(prompt: str) -> str:
     return json.dumps({"questions": questions})
 
 
+def _sample_chat(prompt: str, question: str) -> str:
+    # "Retrieval" by shared words: the lesson sentence with the most words
+    # in common with the question.
+    words = lambda t: {w for w in re.findall(r"[a-z]{4,}", t.lower())}  # noqa: E731
+    asked = words(question)
+    best = max(_sentences(_section(prompt, "lesson")), key=lambda s: len(asked & words(s)))
+    if not asked & words(best):
+        return "**[Sample AI answer]** The lesson doesn't seem to cover that. Try asking your instructor."
+    return f"**[Sample AI answer]** The lesson says: {best}"
+
+
 class MockProvider:
     name = "mock"
     model = "mock-1"
@@ -67,6 +78,9 @@ class MockProvider:
     async def complete(self, *, system: str, prompt: str, max_tokens: int, json_schema: dict | None = None) -> str:
         if json_schema is not None and json_schema.get("title") == "GeneratedQuestions":
             return _sample_questions(prompt)
+        question = _section(prompt, "question")
+        if question and _section(prompt, "lesson"):
+            return _sample_chat(prompt, question)
         correct = _section(prompt, "correct_answer")
         if correct:
             student = " / ".join(_section(prompt, "student_answer").splitlines())

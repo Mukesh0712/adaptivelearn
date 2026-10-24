@@ -12,7 +12,7 @@ from app.config import load_settings
 from app.providers import get_provider
 from app.providers.base import AIProvider
 from app.security import require_internal_key
-from app.tasks import instructor
+from app.tasks import chat, instructor
 from app.tasks.feedback import MAX_TOKENS, SYSTEM, FeedbackRequest, FeedbackResponse, build_prompt, clean_output
 
 log = logging.getLogger("ai-service")
@@ -82,6 +82,13 @@ async def questions(req: instructor.QuestionsRequest) -> instructor.QuestionsRes
     if not kept:
         raise HTTPException(status_code=502, detail="The AI provider gave no usable questions")
     return instructor.QuestionsResponse(questions=kept, dropped=dropped, model=provider.model)
+
+
+@v1.post("/chat")
+async def chat_answer(req: chat.ChatRequest) -> chat.ChatResponse:
+    provider = app.state.provider
+    text = await ask(provider, system=chat.SYSTEM, prompt=chat.build_prompt(req), max_tokens=chat.MAX_TOKENS)
+    return chat.ChatResponse(answer=clean_output(text), model=provider.model)
 
 
 async def ask(provider: AIProvider, *, system: str, prompt: str, max_tokens: int, json_schema: dict | None = None) -> str:
