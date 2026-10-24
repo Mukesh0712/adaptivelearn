@@ -81,7 +81,7 @@ async function finish(attempt: QuizAttemptDocument, auto: boolean): Promise<Quiz
 }
 
 // Time ran out while the student was away: grade what was saved.
-async function finishIfExpired(attempt: QuizAttemptDocument | null) {
+export async function finishIfExpired(attempt: QuizAttemptDocument | null) {
   if (attempt && attempt.status === 'in_progress' && expired(attempt)) return finish(attempt, true);
   return attempt;
 }

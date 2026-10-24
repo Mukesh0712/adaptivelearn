@@ -9,22 +9,40 @@ import { LessonModel } from '../models/Lesson.js';
 import { assessRisk, median } from '../utils/risk.js';
 import { computeMastery, GENERAL_TOPIC, keyOf, type AttemptEvidence, type TopicMastery } from '../utils/mastery.js';
 import { recommend, type RecLesson, type RecQuiz } from '../utils/recommend.js';
-import { studentAccess } from './attempt.controller.js';
+import { finishIfExpired, studentAccess } from './attempt.controller.js';
 import { editAccess, outline } from './content.controller.js';
 
 // The adaptive learning engine: topic mastery (BKT), recommendations and
 // at-risk students. Everything is calculated from the stored quiz attempts
 // and lesson progress when asked, so it can never disagree with them.
 
+// Attempts whose time ran out while the student was away are still marked
+// "in progress" until someone opens them (see attempt.controller.ts). Grade
+// them first, so their answers count and a graded quiz the student did take
+// isn't reported as missed.
+async function finishExpiredAttempts(courseId: Types.ObjectId, studentIds?: string[]) {
+  const stale = await QuizAttemptModel.find({
+    course: courseId,
+    status: 'in_progress',
+    deadline: { $ne: null, $lt: new Date() },
+    ...(studentIds ? { student: { $in: studentIds } } : {}),
+  });
+  // finishIfExpired applies the same grace period as the quiz pages.
+  await Promise.all(stale.map((a) => finishIfExpired(a)));
+}
+
 // Submitted attempts in a course, grouped by student, as BKT evidence, plus
 // the topic name for untagged questions of each quiz (its module title).
+// Call finishExpiredAttempts first.
 export async function courseEvidence(courseId: Types.ObjectId, studentIds?: string[]) {
   const [attempts, quizzes, modules] = await Promise.all([
     QuizAttemptModel.find({
       course: courseId,
       status: 'submitted',
       ...(studentIds ? { student: { $in: studentIds } } : {}),
-    }).select('quiz student submittedAt questions.type questions.topic questions.options questions.points questions.earned'),
+    })
+      .select('quiz student submittedAt questions.type questions.topic questions.options questions.points questions.earned')
+      .lean(), // read-only: plain objects use far less memory for a big class
     QuizModel.find({ course: courseId }).select('module'),
     ModuleModel.find({ course: courseId }).select('title'),
   ]);
@@ -68,6 +86,7 @@ export async function myMastery(req: Request, res: Response) {
   const access = await studentAccess(req); // enrolled students only, else 403/404
   const courseId = access.course._id;
   const studentId = req.user!.id;
+  await finishExpiredAttempts(courseId, [studentId]); // before reading any attempts
   const [{ byStudent, fallback }, modules, quizzes, open] = await Promise.all([
     courseEvidence(courseId, [studentId]),
     outline(courseId, true),
@@ -130,14 +149,15 @@ export async function classInsights(req: Request, res: Response) {
   }>('student', 'name email');
   const students = enrollments.filter((e) => e.student);
   const ids = students.map((e) => String(e.student!._id));
+  await finishExpiredAttempts(courseId, ids); // before reading any attempts
 
   const [{ byStudent, fallback }, lessons, progress, attempts, pastDue] = await Promise.all([
     courseEvidence(courseId, ids),
     LessonModel.find({ course: courseId, status: 'published' }).select('_id'),
-    LessonProgressModel.find({ course: courseId, student: { $in: ids } }).select('student lesson completedAt'),
-    QuizAttemptModel.find({ course: courseId, student: { $in: ids } }).select(
-      'quiz student status percent passPercent startedAt submittedAt',
-    ),
+    LessonProgressModel.find({ course: courseId, student: { $in: ids } }).select('student lesson completedAt').lean(),
+    QuizAttemptModel.find({ course: courseId, student: { $in: ids } })
+      .select('quiz student status percent passPercent startedAt submittedAt')
+      .lean(),
     // Graded quizzes whose due date has passed: anyone who didn't submit one missed it.
     QuizModel.find({ course: courseId, status: 'published', kind: 'graded', dueAt: { $lt: now } }).select('title dueAt'),
   ]);
